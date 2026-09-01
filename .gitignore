@@ -1,0 +1,34 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+*.user
+*.suo
+
+# Test / coverage
+TestResults/
+coverage*.json
+coverage*.xml
+coverage*.info
+StrykerOutput/
+
+# IDE
+.vs/
+.idea/
+*.swp
+
+# Local data — never commit the ledger
+*.db
+*.db-shm
+*.db-wal
+backups/
+appsettings.Local.json
+appsettings.Development.json
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
