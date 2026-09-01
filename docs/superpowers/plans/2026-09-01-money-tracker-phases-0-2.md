@@ -350,7 +350,7 @@ git add -A && git commit -m "chore: scaffold solution, nine projects, central pa
 
 These tests are written first and stay green forever. They are the mechanism that stops the architecture eroding during phases 3–8, so they are worth their weight now, while there is nothing to fix.
 
-- [ ] **Step 1: Write the repository-root helper**
+- [x] **Step 1: Write the repository-root helper**
 
 ```csharp
 namespace Money.Architecture.Tests;
@@ -371,7 +371,7 @@ internal static class RepositoryRoot
 }
 ```
 
-- [ ] **Step 2: Add assembly markers so the tests have something to point at**
+- [x] **Step 2: Add assembly markers so the tests have something to point at**
 
 `Money.Application` and `Money.Domain` are still empty. Create one marker type in each so these tests compile now and keep compiling later:
 
@@ -393,7 +393,7 @@ namespace Money.Application;
 public sealed class ApplicationAssemblyMarker;
 ```
 
-- [ ] **Step 3: Write the failing dependency-rule tests**
+- [x] **Step 3: Write the failing dependency-rule tests**
 
 ```csharp
 using NetArchTest.Rules;
@@ -444,7 +444,7 @@ public sealed class DependencyRuleTests
 }
 ```
 
-- [ ] **Step 4: Write the failing domain-purity tests**
+- [x] **Step 4: Write the failing domain-purity tests**
 
 ```csharp
 using System.Reflection;
@@ -523,7 +523,7 @@ public sealed class DomainPurityTests
 }
 ```
 
-- [ ] **Step 5: Write the failing ambient-time test**
+- [x] **Step 5: Write the failing ambient-time test**
 
 This one scans source, because forbidding a *call* is an IL-level question that reflection cannot answer cleanly. A source scan is exact, fast, and reads well in a failure message.
 
@@ -563,18 +563,18 @@ public sealed class AmbientTimeTests
 }
 ```
 
-- [ ] **Step 6: Run the architecture tests**
+- [x] **Step 6: Run the architecture tests**
 
 Run: `dotnet test tests/Money.Architecture.Tests`
 Expected: PASS — all five tests. The tree is empty, so every rule is trivially satisfied. That is the correct starting state: the rules exist before there is anything to break them.
 
-- [ ] **Step 7: Prove the ambient-time rule actually catches something**
+- [x] **Step 7: Prove the ambient-time rule actually catches something**
 
 Temporarily add `public static DateTime Bad => DateTime.UtcNow;` to `src/Money.Application/ApplicationAssemblyMarker.cs`, re-run the test, confirm it FAILS naming that file, then remove it.
 
 A rule nobody has seen fail is a rule nobody knows is wired up.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src tests/Money.Architecture.Tests
