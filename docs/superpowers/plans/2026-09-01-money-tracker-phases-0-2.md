@@ -1112,7 +1112,7 @@ git commit -m "feat: add Currency with a known-currency table and no exponent gu
 - Produces: `sealed record Money` with `long AmountMinor`, `Currency Currency`, `bool IsZero`, `int Sign`, `static Money Of(long, Currency)`, `static Money Zero(Currency)`, `Add`, `Subtract`, `Negate`, operators `+`, `-`, unary `-`, `Money ApplyRate(decimal)`, `static long RoundToMinor(decimal)`, `decimal ToDecimal()`.
 - `RoundToMinor` is the solution's **single** rounding function — half away from zero. The accrual engine in phase 6 depends on it living here and nowhere else.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Money;
@@ -1208,12 +1208,12 @@ public sealed class MoneyTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter MoneyTests`
 Expected: FAIL — `Money` does not exist.
 
-- [ ] **Step 3: Implement `CurrencyMismatchException`**
+- [x] **Step 3: Implement `CurrencyMismatchException`**
 
 ```csharp
 namespace Money.Domain.Money;
@@ -1237,7 +1237,7 @@ public sealed class CurrencyMismatchException : InvalidOperationException
 }
 ```
 
-- [ ] **Step 4: Implement `Money`**
+- [x] **Step 4: Implement `Money`**
 
 ```csharp
 using System.Globalization;
@@ -1311,17 +1311,17 @@ public sealed record Money
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter MoneyTests`
 Expected: PASS.
 
-- [ ] **Step 6: Run the architecture tests**
+- [x] **Step 6: Run the architecture tests**
 
 Run: `dotnet test tests/Money.Architecture.Tests`
 Expected: PASS — in particular `No_floating_point_types_appear_in_the_domain`, which is why `Math.Pow` and `double` were avoided in Tasks 4 and 5.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Domain/Money tests/Money.Domain.Tests/Money
