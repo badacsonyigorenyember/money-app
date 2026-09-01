@@ -2379,7 +2379,7 @@ The whole point of this phase is that a transaction which does not balance **can
 
 **Consequence worth stating out loud:** the spec's role/kind rules leave `AccountKind.Liability` with no legal role, so a liability account cannot be created in v1. That is correct — credit cards are a non-goal (spec section 2) and the enum value exists only so the schema does not need a migration later. Do not invent a role to make it reachable.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -2534,12 +2534,12 @@ public sealed class AccountCreationTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter AccountCreationTests`
 Expected: FAIL — `Money.Domain.Accounts` does not exist.
 
-- [ ] **Step 3: Implement the enums**
+- [x] **Step 3: Implement the enums**
 
 ```csharp
 namespace Money.Domain.Accounts;
@@ -2569,7 +2569,7 @@ public enum AccountRole
 }
 ```
 
-- [ ] **Step 4: Implement `Account`**
+- [x] **Step 4: Implement `Account`**
 
 ```csharp
 using System.Globalization;
@@ -2766,12 +2766,12 @@ public sealed class Account
 
 Note the `Étterem` slug test expects `étterem`, not `etterem`: `char.IsLetterOrDigit` accepts accented letters, and stripping diacritics would risk collapsing two distinct category names into one path.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter AccountCreationTests`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Domain/Accounts tests/Money.Domain.Tests/Accounts
