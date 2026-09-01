@@ -93,6 +93,7 @@ src/
   Money.Api/             Minimal API, Razor Pages + HTMX, composition root
   Money.Desktop/         WebView2 host, boots Kestrel on loopback
 tests/
+  Money.TestSupport/         FakeClock, SqliteFixture, ledger builders (not a test project)
   Money.Domain.Tests/        fast unit + property tests, no I/O
   Money.Application.Tests/   use cases against real in-memory SQLite
   Money.Api.Tests/           WebApplicationFactory integration tests
