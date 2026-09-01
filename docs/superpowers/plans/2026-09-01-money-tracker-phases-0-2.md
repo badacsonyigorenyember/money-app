@@ -1471,7 +1471,7 @@ git commit -m "feat: add IClock with SystemClock and FakeClock implementations"
   - `readonly record struct PeriodKey` with `PeriodType Type`, `int Year`, `int Index`, `static Result<PeriodKey> Create(...)`, `string ToKeyString()`, `static Result<PeriodKey> Parse(string)`
   - `readonly record struct DateRange` with `DateOnly Start`, `DateOnly EndExclusive`, `int LengthInDays`, `bool Contains(DateOnly)`, `static Result<DateRange> Create(...)`, `internal static DateRange FromOrdered(...)`
 
-- [ ] **Step 1: Write the failing `PeriodKey` tests**
+- [x] **Step 1: Write the failing `PeriodKey` tests**
 
 ```csharp
 using Money.Domain.Periods;
@@ -1525,7 +1525,7 @@ public sealed class PeriodKeyTests
 }
 ```
 
-- [ ] **Step 2: Write the failing `PeriodDefinition` and `DateRange` tests**
+- [x] **Step 2: Write the failing `PeriodDefinition` and `DateRange` tests**
 
 ```csharp
 using Money.Domain.Periods;
@@ -1611,12 +1611,12 @@ public sealed class DateRangeTests
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Periods`
 Expected: FAIL — the `Money.Domain.Periods` namespace does not exist.
 
-- [ ] **Step 4: Implement the period vocabulary**
+- [x] **Step 4: Implement the period vocabulary**
 
 `PeriodType.cs` — explicit numeric values because these are persisted:
 
@@ -1855,12 +1855,12 @@ public readonly record struct DateRange
   </ItemGroup>
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Periods`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Domain tests/Money.Domain.Tests/Periods
