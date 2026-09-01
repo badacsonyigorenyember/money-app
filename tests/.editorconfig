@@ -1,0 +1,6 @@
+# xUnit test methods are conventionally named with underscores describing the
+# behaviour under test (see CLAUDE.md "Test-first"). CA1707 flags underscores
+# in member names; it is a public-API naming rule and does not fit test code.
+# Scoped to tests/ only — production code under src/ still gets CA1707.
+[*.cs]
+dotnet_diagnostic.CA1707.severity = none
