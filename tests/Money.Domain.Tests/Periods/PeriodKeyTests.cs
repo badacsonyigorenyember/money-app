@@ -46,4 +46,44 @@ public sealed class PeriodKeyTests
     {
         PeriodKey.Parse(text).IsFailure.Should().BeTrue();
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(9999)]
+    public void A_year_at_the_boundary_of_the_supported_range_is_accepted(int year)
+    {
+        PeriodKey.Create(PeriodType.Yearly, year, 1).IsSuccess.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10000)]
+    public void A_year_outside_the_supported_range_is_rejected(int year)
+    {
+        PeriodKey.Create(PeriodType.Yearly, year, 1).Error!.Code.Should().Be("period.index_out_of_range");
+    }
+
+    [Fact]
+    public void Parsing_a_null_key_is_rejected_rather_than_throwing()
+    {
+        var act = () => PeriodKey.Parse(null!);
+
+        act.Should().NotThrow();
+        PeriodKey.Parse(null!).IsFailure.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_whitespace_only_key_is_reported_verbatim_in_the_error()
+    {
+        PeriodKey.Parse("   ").Error!.Message.Should()
+            .Be("'   ' is not a valid period key such as '2026-M09'.");
+    }
+
+    [Fact]
+    public void A_key_missing_the_separator_dash_is_rejected_even_when_the_rest_would_parse()
+    {
+        // Position 4 must be '-'; without it the string must not be salvaged by the later
+        // year/type/index parsing even though "2026" and "M09" would each parse in isolation.
+        PeriodKey.Parse("2026XM09").IsFailure.Should().BeTrue();
+    }
 }

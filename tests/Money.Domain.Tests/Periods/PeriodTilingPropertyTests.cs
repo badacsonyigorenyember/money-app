@@ -18,7 +18,8 @@ public sealed class PeriodTilingPropertyTests
     private static readonly Gen<int> AnyAnchorDay = Gen.Int[1, 28];
 
     private static readonly Gen<DayOfWeek> AnyFirstDayOfWeek =
-        Gen.OneOfConst(DayOfWeek.Monday, DayOfWeek.Sunday, DayOfWeek.Saturday);
+        Gen.OneOfConst(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+                       DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday);
 
     private static PeriodResolver ResolverFor(int anchorDay, DayOfWeek firstDayOfWeek) =>
         new(PeriodDefinition.Create(

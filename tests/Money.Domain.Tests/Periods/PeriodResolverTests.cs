@@ -135,4 +135,20 @@ public sealed class PeriodResolverTests
         resolver.Range(PeriodKey.Create(PeriodType.Monthly, 2027, 2).Value).LengthInDays.Should().Be(28);
         resolver.Range(PeriodKey.Create(PeriodType.Monthly, 2028, 2).Value).LengthInDays.Should().Be(29);
     }
+
+    [Fact]
+    public void A_resolver_cannot_be_built_from_a_null_definition()
+    {
+        var act = () => new PeriodResolver(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void TodayIn_rejects_a_null_clock()
+    {
+        var act = () => CalendarMonth().TodayIn(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
 }

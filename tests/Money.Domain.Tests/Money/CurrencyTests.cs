@@ -63,6 +63,29 @@ public sealed class CurrencyTests
         Currency.Create("XYZ", -1).Error!.Code.Should().Be("currency.invalid_minor_unit_exponent");
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void An_exponent_at_the_boundary_of_the_supported_range_is_accepted(int exponent)
+    {
+        Currency.Create("XYZ", exponent).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Create_builds_a_new_currency_carrying_the_given_code_and_exponent()
+    {
+        var currency = Currency.Create("XYZ", 3).Value;
+
+        currency.Code.Should().Be("XYZ");
+        currency.MinorUnitExponent.Should().Be(3);
+    }
+
+    [Fact]
+    public void A_malformed_non_null_code_is_reported_verbatim_in_the_error()
+    {
+        Currency.FromCode("E1R").Error!.Message.Should().Contain("E1R");
+    }
+
     [Fact]
     public void A_null_code_passed_to_FromCode_is_rejected_as_invalid_rather_than_throwing()
     {

@@ -1,0 +1,11 @@
+{
+  "stryker-config": {
+    "project": "Money.Domain.csproj",
+    "test-projects": [ "../../tests/Money.Domain.Tests/Money.Domain.Tests.csproj" ],
+    "reporters": [ "progress", "html", "cleartext" ],
+    "thresholds": { "high": 90, "low": 80, "break": 80 },
+    "mutation-level": "Standard",
+    "ignore-mutations": [ "string" ],
+    "coverage-analysis": "perTest"
+  }
+}

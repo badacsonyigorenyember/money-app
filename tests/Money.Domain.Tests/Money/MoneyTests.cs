@@ -24,6 +24,38 @@ public sealed class MoneyTests
     }
 
     [Fact]
+    public void Subtraction_between_different_currencies_throws()
+    {
+        var act = () => _ = MoneyValue.Of(100, Eur) - MoneyValue.Of(100, Usd);
+
+        act.Should().Throw<CurrencyMismatchException>().WithMessage("*EUR*USD*");
+    }
+
+    [Fact]
+    public void Of_rejects_a_null_currency()
+    {
+        var act = () => MoneyValue.Of(100, null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Add_rejects_a_null_operand()
+    {
+        var act = () => _ = MoneyValue.Of(100, Eur).Add(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Subtract_rejects_a_null_operand()
+    {
+        var act = () => _ = MoneyValue.Of(100, Eur).Subtract(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
     public void Negation_flips_the_sign_and_keeps_the_currency()
     {
         var negated = -MoneyValue.Of(2500, Eur);
@@ -65,6 +97,14 @@ public sealed class MoneyTests
     {
         MoneyValue.Of(10_000, Eur).ApplyRate(0.0375m).AmountMinor.Should().Be(375);
         MoneyValue.Of(333, Eur).ApplyRate(0.33333m).AmountMinor.Should().Be(111);
+    }
+
+    [Fact]
+    public void Rounding_that_overflows_a_long_is_detected_rather_than_wrapping()
+    {
+        var act = () => MoneyValue.RoundToMinor((decimal)long.MaxValue + 100m);
+
+        act.Should().Throw<OverflowException>();
     }
 
     [Fact]
