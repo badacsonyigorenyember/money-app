@@ -596,7 +596,7 @@ git commit -m "test: add architecture tests for the dependency rule, domain puri
   - `readonly struct Result<T>` — `IsSuccess`, `IsFailure`, `Value`, `Error`, `Result<T>.Ok(T)`, `Result<T>.Fail(DomainError)`, `Map`, `Match`, implicit conversion from `DomainError`
   - `static class DomainErrors` — every failure code used in this plan. Task 25 maps `DomainError.Code` onto Problem Details `type` URIs, so codes are a public contract. **Never invent a code inline; add it here.**
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Primitives;
@@ -672,12 +672,12 @@ public sealed class ResultTests
 
 The `default(Result<T>)` test matters: `Result` is a struct, so the default value is reachable (an unassigned field, `new Result<int>[10]`). It must never look like success.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter ResultTests`
 Expected: FAIL to compile — `Money.Domain.Primitives` does not exist.
 
-- [ ] **Step 3: Implement `DomainError`**
+- [x] **Step 3: Implement `DomainError`**
 
 ```csharp
 namespace Money.Domain.Primitives;
@@ -686,7 +686,7 @@ namespace Money.Domain.Primitives;
 public sealed record DomainError(string Code, string Message);
 ```
 
-- [ ] **Step 4: Implement `Result` and `Result<T>`**
+- [x] **Step 4: Implement `Result` and `Result<T>`**
 
 ```csharp
 namespace Money.Domain.Primitives;
@@ -751,7 +751,7 @@ public readonly struct Result<T>
 }
 ```
 
-- [ ] **Step 5: Implement the error catalogue**
+- [x] **Step 5: Implement the error catalogue**
 
 ```csharp
 namespace Money.Domain.Primitives;
@@ -903,12 +903,12 @@ public static class DomainErrors
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter ResultTests`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Domain tests/Money.Domain.Tests
