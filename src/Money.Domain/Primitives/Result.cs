@@ -59,8 +59,21 @@ public readonly struct Result<T>
     public static implicit operator Result<T>(DomainError error) => Fail(error);
 
     public Result<TOut> Map<TOut>(Func<T, TOut> map) =>
-        _isSuccess ? Result<TOut>.Ok(map(_value!)) : Result<TOut>.Fail(Error!);
+        _isSuccess ? Result<TOut>.Ok(map(_value!)) : Result<TOut>.Fail(ErrorOrThrowIfDefault());
 
     public TOut Match<TOut>(Func<T, TOut> onSuccess, Func<DomainError, TOut> onFailure) =>
-        _isSuccess ? onSuccess(_value!) : onFailure(Error!);
+        _isSuccess ? onSuccess(_value!) : onFailure(ErrorOrThrowIfDefault());
+
+    // Error is only ever null in the failure branch when this Result<T> was reached via
+    // default(Result<T>) rather than Ok/Fail/the implicit conversion: Fail(DomainError error)
+    // takes a non-nullable parameter under Nullable=enable, so a legitimately-constructed
+    // failure always carries a non-null Error. Map/Match must not hand that null onward to a
+    // caller-supplied handler (an NRE inside the handler, or a silently-produced failure with
+    // a null Error one step further downstream, are both surprising and hard to trace back to
+    // the real cause). Fail loudly here instead, at the point the default state is observed.
+    private DomainError ErrorOrThrowIfDefault() =>
+        Error ?? throw new InvalidOperationException(
+            "Result<T> was used in its default, uninitialised state. Results must be created " +
+            "via Result<T>.Ok, Result<T>.Fail, or the implicit conversion from DomainError - " +
+            "never via default(Result<T>).");
 }
