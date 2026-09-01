@@ -13,6 +13,11 @@ public static class DomainErrors
         public static DomainError InvalidMinorUnitExponent(int exponent) =>
             new("currency.invalid_minor_unit_exponent",
                 $"Minor-unit exponent {exponent} is outside the supported range 0-4.");
+
+        public static DomainError InvalidMinorUnitExponent(string code, int requestedExponent, int canonicalExponent) =>
+            new("currency.invalid_minor_unit_exponent",
+                $"'{code}' is a known currency with minor-unit exponent {canonicalExponent}, " +
+                $"not {requestedExponent}. Use FromCode, or Create with the canonical exponent.");
     }
 
     public static class Period

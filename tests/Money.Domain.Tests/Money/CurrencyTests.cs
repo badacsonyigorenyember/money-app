@@ -56,4 +56,34 @@ public sealed class CurrencyTests
     {
         Currency.Create("EUR", 9).Error!.Code.Should().Be("currency.invalid_minor_unit_exponent");
     }
+
+    [Fact]
+    public void A_negative_exponent_is_rejected()
+    {
+        Currency.Create("XYZ", -1).Error!.Code.Should().Be("currency.invalid_minor_unit_exponent");
+    }
+
+    [Fact]
+    public void A_null_code_passed_to_FromCode_is_rejected_as_invalid_rather_than_throwing()
+    {
+        var act = () => Currency.FromCode(null!);
+
+        act.Should().NotThrow();
+        Currency.FromCode(null!).Error!.Code.Should().Be("currency.invalid_code");
+    }
+
+    [Fact]
+    public void Create_returns_the_canonical_instance_for_a_known_code_with_the_matching_exponent()
+    {
+        Currency.Create("EUR", 2).Value.Should().Be(Currency.Eur);
+    }
+
+    [Fact]
+    public void Create_rejects_a_known_code_whose_exponent_disagrees_with_the_canonical_one()
+    {
+        var result = Currency.Create("EUR", 3);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Code.Should().Be("currency.invalid_minor_unit_exponent");
+    }
 }

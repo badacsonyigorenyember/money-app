@@ -58,6 +58,13 @@ public sealed record Currency
         if (minorUnitExponent is < 0 or > MaxExponent)
             return DomainErrors.Currency.InvalidMinorUnitExponent(minorUnitExponent);
 
+        if (KnownByCode.TryGetValue(normalised, out var known))
+        {
+            return known.MinorUnitExponent == minorUnitExponent
+                ? Result<Currency>.Ok(known)
+                : DomainErrors.Currency.InvalidMinorUnitExponent(normalised, minorUnitExponent, known.MinorUnitExponent);
+        }
+
         return Result<Currency>.Ok(new Currency(normalised, minorUnitExponent));
     }
 
