@@ -76,6 +76,30 @@ public sealed class MoneyTests
     }
 
     [Fact]
+    public void Negating_the_minimum_long_value_overflows_rather_than_wrapping()
+    {
+        var act = () => _ = -MoneyValue.Of(long.MinValue, Eur);
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact]
+    public void Negate_of_the_minimum_long_value_overflows_rather_than_wrapping()
+    {
+        var act = () => _ = MoneyValue.Of(long.MinValue, Eur).Negate();
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact]
+    public void Subtracting_past_the_minimum_long_value_overflows_rather_than_wrapping()
+    {
+        var act = () => _ = MoneyValue.Of(long.MinValue, Eur) - MoneyValue.Of(1, Eur);
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact]
     public void Money_compares_by_value()
     {
         MoneyValue.Of(100, Eur).Should().Be(MoneyValue.Of(100, Eur));
