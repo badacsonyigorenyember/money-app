@@ -2281,14 +2281,14 @@ git commit -m "feat: add PeriodResolver with I9 tiling property tests"
 
 Phases 1–8 must not lower the threshold. If a phase's code cannot reach it, the fix is better assertions, not a lower bar.
 
-- [ ] **Step 1: Install Stryker as a local tool**
+- [x] **Step 1: Install Stryker as a local tool**
 
 ```bash
 dotnet new tool-manifest
 dotnet tool install dotnet-stryker
 ```
 
-- [ ] **Step 2: Write `stryker-config.json`**
+- [x] **Step 2: Write `stryker-config.json`**
 
 ```json
 {
@@ -2306,7 +2306,7 @@ dotnet tool install dotnet-stryker
 
 `ignore-mutations: ["string"]` skips mutations of string literals — error messages and format strings — which produce noise without protecting money logic. Everything arithmetic, conditional and boundary-related stays mutated.
 
-- [ ] **Step 3: Run Stryker locally and read the report**
+- [x] **Step 3: Run Stryker locally and read the report**
 
 Run: `dotnet stryker` from `src/Money.Domain`
 Expected: a score at or above 80. The HTML report lands in `StrykerOutput/`.
@@ -2316,7 +2316,7 @@ Survived mutants are a to-do list, not a formality. For each survivor in `Money`
 - `MidpointRounding.AwayFromZero` → `ToEven` — killed by the `2.5 → 3` and `-2.5 → -3` cases;
 - the `+ 3` in the weekly midweek rule — killed by the ISO week-1 example test.
 
-- [ ] **Step 4: Add the mutation job to CI**
+- [x] **Step 4: Add the mutation job to CI**
 
 Append to `.github/workflows/ci.yml`:
 
@@ -2340,11 +2340,11 @@ Append to `.github/workflows/ci.yml`:
           path: '**/StrykerOutput/**/reports/**'
 ```
 
-- [ ] **Step 5: Verify the gate actually fails when it should**
+- [x] **Step 5: Verify the gate actually fails when it should**
 
 Temporarily delete the `[InlineData(-2.5, -3)]` case from `MoneyTests.Rounding_is_half_away_from_zero`, run `dotnet stryker`, confirm a `MidpointRounding` mutant survives and the score drops. Restore the case.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .config stryker-config.json .github/workflows/ci.yml
