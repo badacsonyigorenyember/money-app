@@ -931,7 +931,7 @@ git commit -m "feat: add Result, DomainError and the domain error catalogue"
 
 The `Money.Domain.Money` namespace collides with the `Money` type name inside it. C# resolves this correctly in most positions but not all; test files in this plan alias it (`using MoneyValue = Money.Domain.Money.Money;`) where needed.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Money;
@@ -995,12 +995,12 @@ public sealed class CurrencyTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter CurrencyTests`
 Expected: FAIL — `Currency` does not exist.
 
-- [ ] **Step 3: Implement `Currency`**
+- [x] **Step 3: Implement `Currency`**
 
 ```csharp
 using Money.Domain.Primitives;
@@ -1087,12 +1087,12 @@ public sealed record Currency
 
 `Pow10` is hand-rolled because `Math.Pow` returns `double`, which the domain-purity architecture test forbids — and rightly so.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter CurrencyTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Money.Domain/Money tests/Money.Domain.Tests/Money
