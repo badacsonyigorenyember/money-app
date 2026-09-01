@@ -1882,7 +1882,7 @@ git commit -m "feat: add period vocabulary - type, anchor, definition, key and d
 
 The week rule, stated once so it is not reinvented: a week starts on `FirstDayOfWeek`; a week belongs to the year of its **midweek day** (`weekStart + 3 days`); week 1 of a year is the week containing 4 January. With `FirstDayOfWeek = Monday` this is exactly ISO-8601.
 
-- [ ] **Step 1: Write the failing example tests**
+- [x] **Step 1: Write the failing example tests**
 
 ```csharp
 using Money.Domain.Periods;
@@ -2025,7 +2025,7 @@ public sealed class PeriodResolverTests
 }
 ```
 
-- [ ] **Step 2: Write the failing I9 property test**
+- [x] **Step 2: Write the failing I9 property test**
 
 ```csharp
 using CsCheck;
@@ -2104,12 +2104,12 @@ public sealed class PeriodTilingPropertyTests
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter PeriodResolver`
 Expected: FAIL — `PeriodResolver` does not exist.
 
-- [ ] **Step 4: Implement `PeriodResolver`**
+- [x] **Step 4: Implement `PeriodResolver`**
 
 ```csharp
 using Money.Domain.Time;
@@ -2253,14 +2253,14 @@ public sealed class PeriodResolver
 
 `DateRange.FromOrdered` is `internal`, so `Money.Domain` needs no extra visibility for its own use — but the `InternalsVisibleTo` added in Task 7 keeps the domain tests able to construct ranges directly if they need to.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Period`
 Expected: PASS — including all four properties at 10,000 iterations each.
 
 If `Previous_undoes_next` fails for `Weekly` near a year boundary, the bug is in `WeeklyRange`'s week-1 anchor, not in the property. Do not weaken the property.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Domain/Periods tests/Money.Domain.Tests/Periods
