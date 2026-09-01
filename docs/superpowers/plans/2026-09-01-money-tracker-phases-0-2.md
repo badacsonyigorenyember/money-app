@@ -157,7 +157,7 @@ tests/Money.Architecture.Tests/        NetArchTest + source-scanning rules
 **Interfaces:**
 - Produces: a buildable solution where `dotnet test` runs and passes; every later task assumes these project names and reference directions.
 
-- [ ] **Step 1: Create the solution and projects**
+- [x] **Step 1: Create the solution and projects**
 
 Run from the repository root:
 
@@ -183,7 +183,7 @@ find src tests -name '*.csproj' -exec dotnet sln add {} +
 
 Delete the generated `Class1.cs` from each class library.
 
-- [ ] **Step 2: Wire the reference graph — inward only**
+- [x] **Step 2: Wire the reference graph — inward only**
 
 ```bash
 dotnet add src/Money.Application reference src/Money.Domain
@@ -199,7 +199,7 @@ dotnet add tests/Money.Architecture.Tests reference src/Money.Api src/Money.Desk
 
 `Money.Api` never gets a direct reference to `Money.Domain` — it reaches the domain transitively. This keeps the dependency arrow honest and the architecture test simple.
 
-- [ ] **Step 3: Write `Directory.Build.props`**
+- [x] **Step 3: Write `Directory.Build.props`**
 
 ```xml
 <Project>
@@ -218,7 +218,7 @@ dotnet add tests/Money.Architecture.Tests reference src/Money.Api src/Money.Desk
 </Project>
 ```
 
-- [ ] **Step 4: Write `Directory.Packages.props`**
+- [x] **Step 4: Write `Directory.Packages.props`**
 
 `FluentAssertions` is pinned to `6.12.2` deliberately: version 8 moved to a paid commercial licence. 6.12.2 is Apache-2.0. Do not let a tool "helpfully" upgrade it.
 
@@ -252,7 +252,7 @@ global using FluentAssertions;
 global using Xunit;
 ```
 
-- [ ] **Step 5: Write `.editorconfig`**
+- [x] **Step 5: Write `.editorconfig`**
 
 ```ini
 root = true
@@ -270,7 +270,7 @@ dotnet_diagnostic.CA2007.severity = none
 indent_size = 2
 ```
 
-- [ ] **Step 6: Write the smoke test**
+- [x] **Step 6: Write the smoke test**
 
 `tests/Money.Domain.Tests/SolutionSmokeTests.cs`:
 
@@ -289,12 +289,12 @@ public sealed class SolutionSmokeTests
 
 Deliberately independent of any domain type, so Task 1 ends green.
 
-- [ ] **Step 7: Verify the whole solution builds and tests pass**
+- [x] **Step 7: Verify the whole solution builds and tests pass**
 
 Run: `dotnet build -warnaserror` then `dotnet test`
 Expected: build succeeds with zero warnings; all four test projects report passed.
 
-- [ ] **Step 8: Write the CI workflow**
+- [x] **Step 8: Write the CI workflow**
 
 `.github/workflows/ci.yml`:
 
@@ -330,7 +330,7 @@ jobs:
 
 `Money.Desktop` builds fine on `ubuntu-latest` until phase 8 adds WebView2. Phase 8's plan adds a `win-x64` job and excludes the desktop project from the Linux job.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A && git commit -m "chore: scaffold solution, nine projects, central package management and CI"
