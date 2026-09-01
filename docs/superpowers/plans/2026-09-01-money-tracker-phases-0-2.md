@@ -1343,7 +1343,7 @@ git commit -m "feat: add Money value object with checked arithmetic and half-awa
   - `sealed class FakeClock : IClock` with a settable `UtcNow`, `void Advance(TimeSpan)`, `static FakeClock At(int y, int m, int d)` and `static FakeClock At(int y, int m, int d, int hour, int minute)`.
 - Every later task injects `IClock`. Nothing converts UTC to a local date except `PeriodResolver.TodayIn(IClock)` (Task 8).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```csharp
 using Money.TestSupport;
@@ -1376,12 +1376,12 @@ public sealed class FakeClockTests
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter FakeClockTests`
 Expected: FAIL — `FakeClock` does not exist.
 
-- [ ] **Step 3: Implement `IClock`**
+- [x] **Step 3: Implement `IClock`**
 
 ```csharp
 namespace Money.Domain.Time;
@@ -1395,7 +1395,7 @@ public interface IClock
 }
 ```
 
-- [ ] **Step 4: Implement `SystemClock`**
+- [x] **Step 4: Implement `SystemClock`**
 
 ```csharp
 using Money.Domain.Time;
@@ -1412,7 +1412,7 @@ public sealed class SystemClock : IClock
 }
 ```
 
-- [ ] **Step 5: Implement `FakeClock`**
+- [x] **Step 5: Implement `FakeClock`**
 
 ```csharp
 using Money.Domain.Time;
@@ -1437,17 +1437,17 @@ public sealed class FakeClock : IClock
 
 `Money.TestSupport` is a plain class library: no test SDK, no xUnit, no `IsTestProject`.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter FakeClockTests`
 Expected: PASS.
 
-- [ ] **Step 7: Run the architecture tests**
+- [x] **Step 7: Run the architecture tests**
 
 Run: `dotnet test tests/Money.Architecture.Tests --filter Ambient_time`
 Expected: PASS — `SystemClock.cs` is on the allow-list and is the only reader of ambient time in `src/`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Money.Domain/Time src/Money.Infrastructure/Time tests/Money.TestSupport tests/Money.Domain.Tests/Time
