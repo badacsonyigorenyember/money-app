@@ -2794,7 +2794,7 @@ git commit -m "feat: add Account with kind/role constraints and a materialised p
   - `static Result Move(Account account, Account? newParent, IReadOnlyCollection<Account> newSiblings, IReadOnlyCollection<Account> descendants, DateTimeOffset nowUtc)`
 - Callers must supply the sibling set and the descendant set; the domain has no repository. Task 21's use case loads both.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -2969,12 +2969,12 @@ public sealed class AccountTreeTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter AccountTreeTests`
 Expected: FAIL — `AccountTree` does not exist.
 
-- [ ] **Step 3: Implement `AccountTree`**
+- [x] **Step 3: Implement `AccountTree`**
 
 ```csharp
 using Money.Domain.Primitives;
@@ -3087,12 +3087,12 @@ public static class AccountTree
 
 `AccountTree` is in the same assembly as `Account`, so the `internal` `Apply*` methods are reachable without widening `Account`'s public surface.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter AccountTreeTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Money.Domain/Accounts tests/Money.Domain.Tests/Accounts
