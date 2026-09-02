@@ -3669,7 +3669,7 @@ git commit -m "feat: add Transaction aggregate enforcing the balancing invariant
 
 Spec D11: transactions are voided, never deleted. **I11** — a voided transaction contributes to no balance, report or budget — is enforced by every reader filtering `IsVoided`, and is property-tested in Task 15.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -3800,12 +3800,12 @@ public sealed class TransactionVoidAndReplaceTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter TransactionVoidAndReplaceTests`
 Expected: FAIL — `Void` and `Replace` do not exist.
 
-- [ ] **Step 3: Add the three methods to `Transaction`**
+- [x] **Step 3: Add the three methods to `Transaction`**
 
 Insert after `BuildPostings`:
 
@@ -3864,12 +3864,12 @@ Insert after `BuildPostings`:
     }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter TransactionVoidAndReplaceTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Money.Domain/Ledger tests/Money.Domain.Tests/Ledger
