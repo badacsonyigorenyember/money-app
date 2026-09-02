@@ -8,7 +8,7 @@ public sealed class DependencyRuleTests
         typeof(Money.Domain.DomainAssemblyMarker).Assembly;
 
     private static readonly System.Reflection.Assembly Application =
-        typeof(Money.Application.ApplicationAssemblyMarker).Assembly;
+        typeof(Money.Application.Abstractions.IUnitOfWork).Assembly;
 
     [Fact]
     public void Domain_references_nothing_but_the_base_class_library()
