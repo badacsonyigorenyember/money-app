@@ -4765,7 +4765,7 @@ This is the phase that turns a proven domain into something the user opens every
 
 **This mapper is the only place in the solution where the sign convention leaks.** Every DTO amount goes through it. If you find a `* -1` anywhere else, that is a bug.
 
-- [ ] **Step 1: Write the failing mapper tests**
+- [x] **Step 1: Write the failing mapper tests**
 
 ```csharp
 using Money.Application.Presentation;
@@ -4833,12 +4833,12 @@ public sealed class DisplayAmountMapperTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter DisplayAmountMapperTests`
 Expected: FAIL — `DisplayAmountMapper` does not exist.
 
-- [ ] **Step 3: Implement the mapper**
+- [x] **Step 3: Implement the mapper**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -4878,7 +4878,7 @@ public static class DisplayAmountMapper
 }
 ```
 
-- [ ] **Step 4: Write the ports**
+- [x] **Step 4: Write the ports**
 
 One file each under `Abstractions/`. Repositories take domain entities; nothing here mentions EF Core.
 
@@ -5065,7 +5065,7 @@ public interface ICurrentUser
 }
 ```
 
-- [ ] **Step 5: Write the contracts (DTOs)**
+- [x] **Step 5: Write the contracts (DTOs)**
 
 ```csharp
 namespace Money.Application.Contracts;
@@ -5158,16 +5158,16 @@ public sealed record BackupResultDto(string FileName, DateTimeOffset CreatedAtUt
 public sealed record IntegrityReportDto(bool IsHealthy, IReadOnlyList<string> Findings);
 ```
 
-- [ ] **Step 6: Point the architecture test at a real type and delete the marker**
+- [x] **Step 6: Point the architecture test at a real type and delete the marker**
 
 In `DependencyRuleTests`, replace `typeof(Money.Application.ApplicationAssemblyMarker)` with `typeof(Money.Application.Abstractions.IUnitOfWork)`, then delete `ApplicationAssemblyMarker.cs`.
 
-- [ ] **Step 7: Run the tests**
+- [x] **Step 7: Run the tests**
 
 Run: `dotnet test`
 Expected: PASS — including the architecture tests against the new application types.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Money.Application tests/Money.Application.Tests tests/Money.Architecture.Tests
