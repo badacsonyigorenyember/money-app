@@ -111,6 +111,59 @@ public sealed class Transaction
         return Result<List<Posting>>.Ok(postings);
     }
 
+    public Result Void(string reason, DateTimeOffset nowUtc)
+    {
+        if (IsVoided) return DomainErrors.Transaction.AlreadyVoided();
+
+        var trimmed = reason?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return DomainErrors.Transaction.VoidReasonRequired();
+
+        IsVoided = true;
+        VoidedAtUtc = nowUtc;
+        VoidReason = trimmed;
+        UpdatedAtUtc = nowUtc;
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Replaces the whole content of the transaction. Either every change applies or none does:
+    /// the new entries are built and validated before anything is mutated.
+    /// </summary>
+    public Result Replace(
+        DateOnly occurredOn, string description, string? payee,
+        IReadOnlyList<PostingDraft> postings,
+        IReadOnlyDictionary<Guid, Account> accountsById,
+        DateTimeOffset nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(postings);
+        ArgumentNullException.ThrowIfNull(accountsById);
+
+        if (IsVoided) return DomainErrors.Transaction.CannotEditVoided();
+
+        var trimmedDescription = description?.Trim();
+        if (string.IsNullOrEmpty(trimmedDescription))
+            return DomainErrors.Transaction.DescriptionRequired();
+
+        var built = BuildPostings(Id, postings, accountsById, nowUtc);
+        if (built.IsFailure) return Result.Fail(built.Error!);
+
+        OccurredOn = occurredOn;
+        Description = trimmedDescription;
+        Payee = payee?.Trim();
+        _postings.Clear();
+        _postings.AddRange(built.Value);
+        UpdatedAtUtc = nowUtc;
+
+        return Result.Ok();
+    }
+
+    public Result SetExternalRef(string? externalRef, DateTimeOffset nowUtc)
+    {
+        ExternalRef = string.IsNullOrWhiteSpace(externalRef) ? null : externalRef.Trim();
+        UpdatedAtUtc = nowUtc;
+        return Result.Ok();
+    }
+
     public override string ToString() =>
         $"{OccurredOn:O} {Description} ({_postings.Count} entries){(IsVoided ? " [voided]" : "")}";
 }
