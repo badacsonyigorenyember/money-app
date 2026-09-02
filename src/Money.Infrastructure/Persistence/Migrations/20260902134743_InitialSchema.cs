@@ -122,6 +122,12 @@ namespace Money.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_Postings", x => x.Id);
                     table.CheckConstraint("CK_Postings_NonZero", "AmountMinor <> 0");
                     table.ForeignKey(
+                        name: "FK_Postings_Accounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "Accounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_Postings_Transactions_TransactionId",
                         column: x => x.TransactionId,
                         principalTable: "Transactions",
@@ -183,9 +189,6 @@ namespace Money.Infrastructure.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Accounts");
-
-            migrationBuilder.DropTable(
                 name: "IdempotencyRecords");
 
             migrationBuilder.DropTable(
@@ -193,6 +196,9 @@ namespace Money.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "Settings");
+
+            migrationBuilder.DropTable(
+                name: "Accounts");
 
             migrationBuilder.DropTable(
                 name: "Transactions");

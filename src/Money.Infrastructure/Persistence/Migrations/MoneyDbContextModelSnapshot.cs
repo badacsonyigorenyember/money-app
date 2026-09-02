@@ -292,6 +292,12 @@ namespace Money.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Money.Domain.Ledger.Posting", b =>
                 {
+                    b.HasOne("Money.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Money.Domain.Ledger.Transaction", null)
                         .WithMany("Postings")
                         .HasForeignKey("TransactionId")

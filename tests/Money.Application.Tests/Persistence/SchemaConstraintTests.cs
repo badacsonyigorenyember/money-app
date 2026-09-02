@@ -112,6 +112,22 @@ public sealed class SchemaConstraintTests : IDisposable
     }
 
     [Fact]
+    public void A_posting_pointing_at_no_account_is_refused()
+    {
+        // A real transaction, so the TransactionId FK is satisfied and only the AccountId
+        // reference is dangling - isolating this from A_posting_pointing_at_no_transaction_is_refused.
+        var transactionId = Guid.NewGuid();
+        ExecuteRaw(InsertTransactionSql(
+            transactionId, "2026-09-01", "Dinner", TransactionSourceKind.Manual, null));
+
+        var act = () => ExecuteRaw(
+            "INSERT INTO Postings (Id, TransactionId, AccountId, AmountMinor, CurrencyCode) VALUES " +
+            $"('{Guid.NewGuid()}', '{transactionId}', '{Guid.NewGuid()}', 100, 'EUR')");
+
+        act.Should().Throw<SqliteException>().WithMessage("*FOREIGN KEY constraint failed*");
+    }
+
+    [Fact]
     public void No_column_in_the_schema_uses_the_real_type()
     {
         using var command = _fixture.Connection.CreateCommand();

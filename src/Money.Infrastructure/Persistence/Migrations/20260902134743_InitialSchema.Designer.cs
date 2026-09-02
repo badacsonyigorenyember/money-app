@@ -11,7 +11,7 @@ using Money.Infrastructure.Persistence;
 namespace Money.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MoneyDbContext))]
-    [Migration("20260902133756_InitialSchema")]
+    [Migration("20260902134743_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
@@ -295,6 +295,12 @@ namespace Money.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Money.Domain.Ledger.Posting", b =>
                 {
+                    b.HasOne("Money.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Money.Domain.Ledger.Transaction", null)
                         .WithMany("Postings")
                         .HasForeignKey("TransactionId")
