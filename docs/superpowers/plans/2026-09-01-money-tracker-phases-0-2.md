@@ -5947,7 +5947,7 @@ git commit -m "feat: resolve the data directory outside the project folder and a
 
 The headline test of this task: **`LedgerQueries` and `BalanceCalculator` must agree on generated ledgers.** The domain calculator is the specification; the SQL is an optimisation. If they disagree, the SQL is wrong.
 
-- [ ] **Step 1: Write the failing agreement tests**
+- [x] **Step 1: Write the failing agreement tests**
 
 ```csharp
 using CsCheck;
@@ -6229,7 +6229,7 @@ public sealed class IntegrityCheckerTests : IDisposable
 }
 ```
 
-- [ ] **Step 2: Write `LedgerSeeder` in `Money.TestSupport`**
+- [x] **Step 2: Write `LedgerSeeder` in `Money.TestSupport`**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -6252,12 +6252,12 @@ public static class LedgerSeeder
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "LedgerQueriesTests|IntegrityCheckerTests"`
 Expected: FAIL — `LedgerQueries` does not exist.
 
-- [ ] **Step 4: Implement the repositories**
+- [x] **Step 4: Implement the repositories**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -6435,7 +6435,7 @@ public sealed class EfUnitOfWork(MoneyDbContext context) : IUnitOfWork
 }
 ```
 
-- [ ] **Step 5: Implement `LedgerQueries`**
+- [x] **Step 5: Implement `LedgerQueries`**
 
 ```csharp
 using System.Globalization;
@@ -6605,7 +6605,7 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
 
 Note `t.Id.CompareTo(cursor.Id) < 0` — EF Core translates `Guid` comparison on SQLite as a text comparison, which is consistent with the `ThenByDescending(t => t.Id)` ordering because both use the same representation. If the paging test shows repeats, switch the tiebreaker to `BookedAtUtc` and re-run.
 
-- [ ] **Step 6: Implement `IntegrityChecker`**
+- [x] **Step 6: Implement `IntegrityChecker`**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -6668,14 +6668,14 @@ public sealed class IntegrityChecker(MoneyDbContext context) : IIntegrityChecker
 }
 ```
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "LedgerQueriesTests|IntegrityCheckerTests"`
 Expected: PASS.
 
 The agreement tests are the ones that matter. If SQL and the domain disagree, **fix the SQL**; do not adjust `BalanceCalculator` to match.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Money.Infrastructure tests/Money.TestSupport tests/Money.Application.Tests
