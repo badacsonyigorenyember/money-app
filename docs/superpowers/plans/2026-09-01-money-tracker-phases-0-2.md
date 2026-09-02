@@ -4382,7 +4382,7 @@ git commit -m "feat: add BalanceCalculator with I1, I3 and I11 property tests"
 
 **I12** is the spec's headline promise: transfers, pocket funding and investment purchases can never be counted as spending. It holds structurally — those templates touch no `Kind=Expense` account — so the property test's job is to prove no template quietly breaks it.
 
-- [ ] **Step 1: Write the failing example tests**
+- [x] **Step 1: Write the failing example tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -4490,7 +4490,7 @@ public sealed class LedgerTemplatesTests
 }
 ```
 
-- [ ] **Step 2: Write the failing I12 property test**
+- [x] **Step 2: Write the failing I12 property test**
 
 ```csharp
 using CsCheck;
@@ -4598,12 +4598,12 @@ public sealed class SpendingExclusionPropertyTests
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Ledger`
 Expected: FAIL — `LedgerTemplates` does not exist.
 
-- [ ] **Step 4: Implement `LedgerTemplates`**
+- [x] **Step 4: Implement `LedgerTemplates`**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -4709,17 +4709,17 @@ public static class LedgerTemplates
 
 `OpeningBalance` allows a negative amount (an account that starts overdrawn) while the other three do not; that is why its guard is `IsZero` rather than `Sign <= 0`.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests`
 Expected: PASS — everything, including the four I12 properties.
 
-- [ ] **Step 6: Run the mutation gate**
+- [x] **Step 6: Run the mutation gate**
 
 Run: `dotnet stryker` from `src/Money.Domain`
 Expected: score at or above 80. `Transaction.BuildPostings` and `BalanceCalculator` are the highest-value targets — every surviving mutant there is a real hole in the money logic. Fix by adding assertions, not by lowering the threshold.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Domain/Ledger tests/Money.Domain.Tests/Ledger
