@@ -5194,7 +5194,7 @@ git commit -m "feat: add application ports, contracts and the single display-amo
 
 Every constraint listed in spec section 8 is created here. The reason they are database constraints and not just domain checks is that the domain cannot see concurrent writers, and phase 3's recurring materialiser depends on the database refusing a duplicate.
 
-- [ ] **Step 1: Add the EF packages**
+- [x] **Step 1: Add the EF packages**
 
 Add to `src/Money.Infrastructure/Money.Infrastructure.csproj`:
 
@@ -5211,7 +5211,7 @@ Install the EF tooling if it is not present:
 dotnet tool install --local dotnet-ef
 ```
 
-- [ ] **Step 2: Write the failing schema tests**
+- [x] **Step 2: Write the failing schema tests**
 
 These are the tests that prove the *database*, not the domain, refuses bad data. They must run against real SQLite.
 
@@ -5359,7 +5359,7 @@ public sealed class SchemaConstraintTests : IDisposable
 }
 ```
 
-- [ ] **Step 3: Write the SQLite fixture in `Money.TestSupport`**
+- [x] **Step 3: Write the SQLite fixture in `Money.TestSupport`**
 
 ```csharp
 using Microsoft.Data.Sqlite;
@@ -5395,12 +5395,12 @@ public sealed class SqliteFixture : IDisposable
 
 `Money.TestSupport` already references `Money.Infrastructure`, so this compiles once the DbContext exists.
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter SchemaConstraintTests`
 Expected: FAIL — `MoneyDbContext` does not exist.
 
-- [ ] **Step 5: Write the two infrastructure-only entities**
+- [x] **Step 5: Write the two infrastructure-only entities**
 
 ```csharp
 namespace Money.Infrastructure.Persistence;
@@ -5444,7 +5444,7 @@ public sealed class IdempotencyRecord
 }
 ```
 
-- [ ] **Step 6: Write `MoneyDbContext` and the configurations**
+- [x] **Step 6: Write `MoneyDbContext` and the configurations**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -5628,7 +5628,7 @@ public sealed class IdempotencyConfiguration : IEntityTypeConfiguration<Idempote
 }
 ```
 
-- [ ] **Step 7: Add the design-time factory and generate the migration**
+- [x] **Step 7: Add the design-time factory and generate the migration**
 
 EF's tooling needs to build a context outside the API host. Add `src/Money.Infrastructure/Persistence/DesignTimeDbContextFactory.cs`:
 
@@ -5656,14 +5656,14 @@ dotnet ef migrations add InitialSchema --project src/Money.Infrastructure --outp
 
 Open the generated migration and **read it**. Confirm: no `REAL` columns; `AmountMinor` is `INTEGER`; the three check constraints appear; `UX_Transactions_Source_Idempotency` has its `WHERE` filter. If `IncludeProperties` produced nothing (SQLite has no INCLUDE), replace `IX_Postings_Balance` with a plain composite index on `(AccountId, TransactionId, AmountMinor)` — SQLite covers a query from any index whose columns suffice.
 
-- [ ] **Step 8: Run the tests to verify they pass**
+- [x] **Step 8: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter SchemaConstraintTests`
 Expected: PASS, 8 tests.
 
 If `A_posting_pointing_at_no_transaction_is_refused` fails, foreign keys are off — check that the fixture's connection string carries `Foreign Keys=True`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/Money.Infrastructure tests/Money.TestSupport tests/Money.Application.Tests
