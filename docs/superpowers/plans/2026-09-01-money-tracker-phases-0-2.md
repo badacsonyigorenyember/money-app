@@ -3285,7 +3285,7 @@ git commit -m "feat: add Posting, PostingDraft and TransactionSourceKind"
 
 This is the invariant boundary. **I1** (postings sum to zero per currency) and **I2** (at least two postings) are enforced here; **I4** (no postings on archived accounts) too. There is no other constructor, so an unbalanced transaction is unrepresentable.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -3508,12 +3508,12 @@ public sealed class TransactionCreationTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter TransactionCreationTests`
 Expected: FAIL — `Transaction` does not exist.
 
-- [ ] **Step 3: Implement `Transaction`**
+- [x] **Step 3: Implement `Transaction`**
 
 ```csharp
 using System.Collections.ObjectModel;
@@ -3636,17 +3636,17 @@ public sealed class Transaction
 
 Ordering note: the count check sits inside `BuildPostings` while the description check sits in `Create`. That is deliberate — `Replace` (Task 14) reuses `BuildPostings` and needs the same count rule, but re-validates its own description.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter TransactionCreationTests`
 Expected: PASS.
 
-- [ ] **Step 5: Run the architecture tests**
+- [x] **Step 5: Run the architecture tests**
 
 Run: `dotnet test tests/Money.Architecture.Tests`
 Expected: PASS — `Postings` returns `ReadOnlyCollection<Posting>` typed as `IReadOnlyList<Posting>`, which the mutable-collection rule allows. If you exposed `_postings` directly, that test fails, which is the point.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Domain/Ledger tests/Money.Domain.Tests/Ledger
