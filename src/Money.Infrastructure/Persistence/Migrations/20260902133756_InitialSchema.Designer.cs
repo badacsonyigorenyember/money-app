@@ -11,7 +11,7 @@ using Money.Infrastructure.Persistence;
 namespace Money.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MoneyDbContext))]
-    [Migration("20260902133143_InitialSchema")]
+    [Migration("20260902133756_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
@@ -46,8 +46,10 @@ namespace Money.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Kind")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -69,8 +71,10 @@ namespace Money.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Role")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
@@ -90,7 +94,7 @@ namespace Money.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Accounts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Accounts_KindRole", "(Role = 5 AND Kind IN (3, 4)) OR (Role IN (1, 2, 3, 4) AND Kind = 1) OR (Role IN (6, 7) AND Kind = 5)");
+                            t.HasCheckConstraint("CK_Accounts_KindRole", "(Role = 'Category' AND Kind IN ('Income','Expense')) OR (Role IN ('Bank','Cash','SavingsPocket','Investment') AND Kind = 'Asset') OR (Role IN ('OpeningBalance','Adjustment') AND Kind = 'Equity')");
 
                             t.HasCheckConstraint("CK_Accounts_PathShape", "Path LIKE '/%'");
                         });
@@ -170,8 +174,10 @@ namespace Money.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("SourceId")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("SourceKind")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
@@ -191,7 +197,7 @@ namespace Money.Infrastructure.Persistence.Migrations
 
                     b.HasIndex(new[] { "SourceKind", "SourceId", "OccurredOn" }, "UX_Transactions_Source_Idempotency")
                         .IsUnique()
-                        .HasFilter("SourceKind IN (2, 3) AND SourceId IS NOT NULL");
+                        .HasFilter("SourceKind IN ('Recurring','Accrual') AND SourceId IS NOT NULL");
 
                     b.ToTable("Transactions", (string)null);
                 });

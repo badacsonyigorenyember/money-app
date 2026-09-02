@@ -10,9 +10,10 @@ namespace Money.Application.Tests.Persistence;
 /// against a real SQLite connection with migrations applied - a test that only exercises the
 /// domain's own validation proves nothing about the schema.
 ///
-/// Kind, Role and SourceKind are persisted as their integer enum values (spec D9 / the
-/// "storage rules" in the task brief), so this file writes numeric literals for those columns
-/// rather than the enum names.
+/// Kind, Role and SourceKind are persisted as their enum *names* (EF's default
+/// HasConversion&lt;string&gt; behaviour), matching spec section 8's own filter example
+/// (`SourceKind IN ('Recurring','Accrual')`), so this file writes the enum names as quoted
+/// string literals for those columns.
 /// </summary>
 public sealed class SchemaConstraintTests : IDisposable
 {
@@ -142,14 +143,14 @@ public sealed class SchemaConstraintTests : IDisposable
     private static string InsertAccountSql(
         Guid id, string name, AccountKind kind, AccountRole role, string path) =>
         "INSERT INTO Accounts (Id, Name, Kind, Role, Path, CurrencyCode, IsArchived, SortOrder, " +
-        $"CreatedAtUtc, UpdatedAtUtc) VALUES ('{id}', '{name}', {(int)kind}, {(int)role}, '{path}', 'EUR', 0, 0, " +
+        $"CreatedAtUtc, UpdatedAtUtc) VALUES ('{id}', '{name}', '{kind}', '{role}', '{path}', 'EUR', 0, 0, " +
         "'2026-09-01T00:00:00+00:00', '2026-09-01T00:00:00+00:00')";
 
     private static string InsertTransactionSql(
         Guid id, string occurredOn, string description, TransactionSourceKind sourceKind, Guid? sourceId) =>
         "INSERT INTO Transactions (Id, OccurredOn, BookedAtUtc, Description, SourceKind, SourceId, " +
         "IsVoided, CreatedAtUtc, UpdatedAtUtc) VALUES " +
-        $"('{id}', '{occurredOn}', '2026-09-01T00:00:00+00:00', '{description}', {(int)sourceKind}, " +
+        $"('{id}', '{occurredOn}', '2026-09-01T00:00:00+00:00', '{description}', '{sourceKind}', " +
         $"{(sourceId is null ? "NULL" : $"'{sourceId}'")}, 0, " +
         "'2026-09-01T00:00:00+00:00', '2026-09-01T00:00:00+00:00')";
 }

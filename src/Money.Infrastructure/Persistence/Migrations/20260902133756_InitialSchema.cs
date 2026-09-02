@@ -17,8 +17,8 @@ namespace Money.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
-                    Kind = table.Column<int>(type: "INTEGER", nullable: false),
-                    Role = table.Column<int>(type: "INTEGER", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
+                    Role = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
                     ParentAccountId = table.Column<Guid>(type: "TEXT", nullable: true),
                     Path = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: false),
                     CurrencyCode = table.Column<string>(type: "TEXT", fixedLength: true, maxLength: 3, nullable: false),
@@ -34,7 +34,7 @@ namespace Money.Infrastructure.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Accounts", x => x.Id);
-                    table.CheckConstraint("CK_Accounts_KindRole", "(Role = 5 AND Kind IN (3, 4)) OR (Role IN (1, 2, 3, 4) AND Kind = 1) OR (Role IN (6, 7) AND Kind = 5)");
+                    table.CheckConstraint("CK_Accounts_KindRole", "(Role = 'Category' AND Kind IN ('Income','Expense')) OR (Role IN ('Bank','Cash','SavingsPocket','Investment') AND Kind = 'Asset') OR (Role IN ('OpeningBalance','Adjustment') AND Kind = 'Equity')");
                     table.CheckConstraint("CK_Accounts_PathShape", "Path LIKE '/%'");
                     table.ForeignKey(
                         name: "FK_Accounts_Accounts_ParentAccountId",
@@ -92,7 +92,7 @@ namespace Money.Infrastructure.Persistence.Migrations
                     BookedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
                     Description = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
                     Payee = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    SourceKind = table.Column<int>(type: "INTEGER", nullable: false),
+                    SourceKind = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
                     SourceId = table.Column<Guid>(type: "TEXT", nullable: true),
                     ExternalRef = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
                     IsVoided = table.Column<bool>(type: "INTEGER", nullable: false),
@@ -176,7 +176,7 @@ namespace Money.Infrastructure.Persistence.Migrations
                 table: "Transactions",
                 columns: new[] { "SourceKind", "SourceId", "OccurredOn" },
                 unique: true,
-                filter: "SourceKind IN (2, 3) AND SourceId IS NOT NULL");
+                filter: "SourceKind IN ('Recurring','Accrual') AND SourceId IS NOT NULL");
         }
 
         /// <inheritdoc />
