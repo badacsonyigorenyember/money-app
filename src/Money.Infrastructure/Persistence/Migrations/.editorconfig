@@ -1,0 +1,11 @@
+# This directory holds EF Core's generated migration code (`dotnet ef migrations add`
+# regenerates it on every schema change). Two style/perf analyzers fire reliably on the
+# scaffolder's own output and cannot be fixed at the source, since the next `dotnet ef` run
+# would just reintroduce them:
+#   IDE0161 - the scaffolder emits block-scoped namespaces, not file-scoped ones.
+#   CA1861  - CreateIndex/CreateTable calls pass array literals as arguments.
+# Scoped to this folder only: every hand-written file in the repo still builds under full
+# TreatWarningsAsErrors analyzer strictness.
+[*.cs]
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CA1861.severity = none
