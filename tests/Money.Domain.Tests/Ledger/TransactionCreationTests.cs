@@ -10,8 +10,9 @@ public sealed class TransactionCreationTests
     private static readonly DateTimeOffset Now = new(2026, 9, 1, 10, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Today = new(2026, 9, 1);
 
-    private static Account NewAccount(string name, AccountKind kind, AccountRole role) =>
-        Account.Create(Guid.CreateVersion7(Now), name, kind, role, null, Currency.Eur, Now).Value;
+    private static Account NewAccount(
+        string name, AccountKind kind, AccountRole role, Currency? currency = null) =>
+        Account.Create(Guid.CreateVersion7(Now), name, kind, role, null, currency ?? Currency.Eur, Now).Value;
 
     private static Dictionary<Guid, Account> Lookup(params Account[] accounts) =>
         accounts.ToDictionary(a => a.Id);
@@ -156,6 +157,82 @@ public sealed class TransactionCreationTests
     }
 
     [Fact]
+    public void A_transaction_balanced_in_one_currency_but_not_another_is_rejected()
+    {
+        // Each posting's currency matches its own account, so this genuinely reaches the
+        // per-currency GroupBy/balance check rather than tripping CurrencyMismatchWithAccount
+        // first. The EUR entries balance to zero on their own; the lone USD entry does not.
+        // A mutant that collapses the per-currency grouping into one global sum would still
+        // reject this transaction (100 - 100 + 50 = 50 = 0 is untrue either way), but it would
+        // name the wrong currency in the error - asserting the message pins the currency the
+        // balance check actually blamed, not just the error code.
+        var eurBank = NewAccount("Current EUR", AccountKind.Asset, AccountRole.Bank);
+        var eurFood = NewAccount("Food", AccountKind.Expense, AccountRole.Category);
+        var usdBank = NewAccount("Current USD", AccountKind.Asset, AccountRole.Bank, Currency.Usd);
+
+        var result = Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Mixed currencies", null, TransactionSourceKind.Manual, null,
+            [
+                new PostingDraft(eurFood.Id, Eur(100)),
+                new PostingDraft(eurBank.Id, Eur(-100)),
+                new PostingDraft(usdBank.Id, MoneyValue.Of(50, Currency.Usd))
+            ],
+            Lookup(eurBank, eurFood, usdBank), Now);
+
+        result.Error!.Code.Should().Be("transaction.does_not_balance");
+        result.Error.Message.Should().Contain("USD");
+        result.Error.Message.Should().Contain("50");
+    }
+
+    [Fact]
+    public void Amounts_that_cancel_only_by_ignoring_currency_do_not_balance()
+    {
+        // The clearest possible demonstration that balancing is per-currency (I1), not global:
+        // neither leg balances on its own, but they net to zero if currency is ignored. A mutant
+        // that sums every posting into one group regardless of currency would wrongly accept
+        // this as balanced.
+        var eurBank = NewAccount("Current EUR", AccountKind.Asset, AccountRole.Bank);
+        var usdBank = NewAccount("Current USD", AccountKind.Asset, AccountRole.Bank, Currency.Usd);
+
+        var result = Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Cross-currency mixup", null, TransactionSourceKind.Manual, null,
+            [
+                new PostingDraft(eurBank.Id, Eur(10000)),
+                new PostingDraft(usdBank.Id, MoneyValue.Of(-10000, Currency.Usd))
+            ],
+            Lookup(eurBank, usdBank), Now);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("transaction.does_not_balance");
+        result.Error.Message.Should().Contain("EUR");
+    }
+
+    [Fact]
+    public void A_transaction_balanced_independently_in_two_currencies_is_created()
+    {
+        // Both currencies happen to balance on their own here. This guards a different mutant
+        // than the two tests above: one that rejects any transaction touching more than one
+        // currency outright, regardless of whether each currency actually balances.
+        var eurBank = NewAccount("Current EUR", AccountKind.Asset, AccountRole.Bank);
+        var eurFood = NewAccount("Food", AccountKind.Expense, AccountRole.Category);
+        var usdBank = NewAccount("Current USD", AccountKind.Asset, AccountRole.Bank, Currency.Usd);
+        var usdFood = NewAccount("Food USD", AccountKind.Expense, AccountRole.Category, Currency.Usd);
+
+        var result = Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Two currencies", null, TransactionSourceKind.Manual, null,
+            [
+                new PostingDraft(eurFood.Id, Eur(100)),
+                new PostingDraft(eurBank.Id, Eur(-100)),
+                new PostingDraft(usdFood.Id, MoneyValue.Of(50, Currency.Usd)),
+                new PostingDraft(usdBank.Id, MoneyValue.Of(-50, Currency.Usd))
+            ],
+            Lookup(eurBank, eurFood, usdBank, usdFood), Now);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Postings.Should().HaveCount(4);
+    }
+
+    [Fact]
     public void The_same_account_cannot_appear_twice()
     {
         var bank = NewAccount("Current", AccountKind.Asset, AccountRole.Bank);
@@ -213,6 +290,13 @@ public sealed class TransactionCreationTests
             Lookup(bank, food), Now).Value;
 
         transaction.Postings.Should().BeAssignableTo<IReadOnlyList<Posting>>();
-        (transaction.Postings as ICollection<Posting>)?.IsReadOnly.Should().NotBe(false);
+
+        // Cast explicitly and assert it succeeds before asserting IsReadOnly - a `?.` chain here
+        // would make the whole assertion pass vacuously (null.Should().NotBe(false) is true) if
+        // the cast ever failed, instead of proving the returned collection actually rejects
+        // mutation.
+        var asCollection = transaction.Postings as ICollection<Posting>;
+        asCollection.Should().NotBeNull("the returned collection must expose IsReadOnly");
+        asCollection!.IsReadOnly.Should().BeTrue();
     }
 }
