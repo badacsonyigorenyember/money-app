@@ -34,11 +34,23 @@ public sealed class Posting
     {
         ArgumentNullException.ThrowIfNull(currency);
 
-        if (!string.Equals(currency.Code, CurrencyCode, StringComparison.Ordinal))
+        var stored = Currency.FromCode(CurrencyCode);
+        if (stored.IsSuccess)
         {
-            var actual = Currency.FromCode(CurrencyCode);
-            throw new CurrencyMismatchException(
-                actual.IsSuccess ? actual.Value : currency, currency);
+            // The stored code resolves to a known Currency: judge "same currency" exactly as
+            // Money.RequireSameCurrency does - full record equality (Code and MinorUnitExponent),
+            // not Code alone.
+            if (!stored.Value.Equals(currency))
+                throw new CurrencyMismatchException(stored.Value, currency);
+        }
+        else if (!string.Equals(CurrencyCode, currency.Code, StringComparison.Ordinal))
+        {
+            // The stored code does not resolve (corrupted or legacy data). We cannot recover its
+            // original minor-unit exponent, so an ordinal code comparison is the best check
+            // available - a code match is accepted rather than rejected outright, since an
+            // unresolvable stored code is not by itself an error. Name the raw stored code rather
+            // than substituting the requested currency for it.
+            throw new CurrencyMismatchException(CurrencyCode, currency);
         }
 
         return MoneyValue.Of(AmountMinor, currency);
