@@ -3896,7 +3896,7 @@ git commit -m "feat: add transaction void and replace, keeping history instead o
 
 This is the **reference implementation**. Task 20's SQL must agree with it; the golden dashboard test in phase 7 is checked against it. Balances are never stored (spec 5.3).
 
-- [ ] **Step 1: Write the failing example tests**
+- [x] **Step 1: Write the failing example tests**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -4019,7 +4019,7 @@ public sealed class BalanceCalculatorTests
 }
 ```
 
-- [ ] **Step 2: Write the ledger generator in `Money.TestSupport`**
+- [x] **Step 2: Write the ledger generator in `Money.TestSupport`**
 
 This generator is used by the I3 property test here, the I12 property test in Task 16, and again in phases 4–7. Build it once, properly.
 
@@ -4142,7 +4142,7 @@ public static class LedgerGen
 
 `Money.TestSupport` now needs the `CsCheck` package reference.
 
-- [ ] **Step 3: Write the failing I3 / I11 property tests**
+- [x] **Step 3: Write the failing I3 / I11 property tests**
 
 ```csharp
 using CsCheck;
@@ -4230,12 +4230,12 @@ public sealed class LedgerBalancePropertyTests
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Balance`
 Expected: FAIL — `BalanceCalculator` does not exist.
 
-- [ ] **Step 5: Implement `BalanceCalculator`**
+- [x] **Step 5: Implement `BalanceCalculator`**
 
 ```csharp
 using Money.Domain.Accounts;
@@ -4351,12 +4351,12 @@ public static class BalanceCalculator
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter Balance`
 Expected: PASS — five properties at 2,000 iterations each plus six example tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Domain/Ledger tests/Money.TestSupport tests/Money.Domain.Tests/Ledger
