@@ -3116,7 +3116,7 @@ git commit -m "feat: add AccountTree with subtree-safe rename and reparent"
 
 **Sign convention, restated where a reader will hit it:** positive is a debit. Asset and Expense go up with a positive amount; Income, Liability and Equity go up with a negative one.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```csharp
 using Money.Domain.Ledger;
@@ -3168,12 +3168,12 @@ public sealed class PostingTests
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter PostingTests`
 Expected: FAIL — `Money.Domain.Ledger` does not exist.
 
-- [ ] **Step 3: Implement the three types**
+- [x] **Step 3: Implement the three types**
 
 ```csharp
 namespace Money.Domain.Ledger;
@@ -3256,12 +3256,12 @@ public sealed class Posting
 
 `CreateForTest` is `internal`; `InternalsVisibleTo("Money.Domain.Tests")` was added in Task 7.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Domain.Tests --filter PostingTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Money.Domain/Ledger tests/Money.Domain.Tests/Ledger
