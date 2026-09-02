@@ -279,6 +279,24 @@ public sealed class TransactionCreationTests
     }
 
     [Fact]
+    public void Create_throws_for_null_postings_or_a_null_account_lookup()
+    {
+        var bank = NewAccount("Current", AccountKind.Asset, AccountRole.Bank);
+        var food = NewAccount("Food", AccountKind.Expense, AccountRole.Category);
+        var postings = new[] { new PostingDraft(food.Id, Eur(2000)), new PostingDraft(bank.Id, Eur(-2000)) };
+
+        var actNullPostings = () => Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Dinner", null, TransactionSourceKind.Manual, null,
+            null!, Lookup(bank, food), Now);
+        var actNullAccounts = () => Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Dinner", null, TransactionSourceKind.Manual, null,
+            postings, null!, Now);
+
+        actNullPostings.Should().Throw<ArgumentNullException>();
+        actNullAccounts.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
     public void The_postings_collection_is_not_mutable_from_outside()
     {
         var bank = NewAccount("Current", AccountKind.Asset, AccountRole.Bank);

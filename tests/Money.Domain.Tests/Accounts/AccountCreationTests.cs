@@ -78,6 +78,31 @@ public sealed class AccountCreationTests
             .Error!.Code.Should().Be("account.name_too_long");
     }
 
+    [Fact]
+    public void A_name_exactly_at_the_limit_is_accepted()
+    {
+        Account.Create(Guid.CreateVersion7(Now), new string('x', Account.MaxNameLength),
+                       AccountKind.Expense, AccountRole.Category, null, Currency.Eur, Now)
+            .IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_leading_symbol_does_not_leave_a_leading_hyphen_in_the_slug()
+    {
+        // Slugify's pending-hyphen flag must not fire before anything has been written to the
+        // slug: "!Hello" has no letters before the '!', so the slug is "hello", not "-hello".
+        Account.Slugify("!Hello").Should().Be("hello");
+    }
+
+    [Fact]
+    public void Create_throws_for_a_null_currency()
+    {
+        var act = () => Account.Create(Guid.CreateVersion7(Now), "Whatever",
+                                       AccountKind.Expense, AccountRole.Category, null, null!, Now);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
     [Theory]
     [InlineData(AccountKind.Income, AccountRole.Category)]
     [InlineData(AccountKind.Expense, AccountRole.Category)]
@@ -156,5 +181,39 @@ public sealed class AccountCreationTests
         account.Archive(Now).IsSuccess.Should().BeTrue();
         account.IsArchived.Should().BeTrue();
         account.Archive(Now).Error!.Code.Should().Be("account.already_archived");
+    }
+
+    [Fact]
+    public void Restoring_an_archived_account_clears_the_archived_flag()
+    {
+        var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);
+        account.Archive(Now);
+        var later = Now.AddDays(1);
+
+        var result = account.Restore(later);
+
+        result.IsSuccess.Should().BeTrue();
+        account.IsArchived.Should().BeFalse();
+        account.UpdatedAtUtc.Should().Be(later);
+    }
+
+    [Fact]
+    public void UpdatePresentation_sets_every_presentation_field()
+    {
+        var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);
+        var later = Now.AddDays(1);
+        var openedOn = new DateOnly(2026, 1, 15);
+
+        var result = account.UpdatePresentation(
+            sortOrder: 5, colorHex: "#FF0000", icon: "controller", notes: "For games",
+            openedOn: openedOn, later);
+
+        result.IsSuccess.Should().BeTrue();
+        account.SortOrder.Should().Be(5);
+        account.ColorHex.Should().Be("#FF0000");
+        account.Icon.Should().Be("controller");
+        account.Notes.Should().Be("For games");
+        account.OpenedOn.Should().Be(openedOn);
+        account.UpdatedAtUtc.Should().Be(later);
     }
 }

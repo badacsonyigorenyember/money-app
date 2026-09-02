@@ -85,6 +85,23 @@ public sealed class AccountTreeTests
     }
 
     [Fact]
+    public void Renaming_to_a_name_with_the_same_slug_leaves_descendant_paths_and_timestamps_untouched()
+    {
+        // "Gaming" and "GAMING" both slugify to "gaming", so the path does not actually change.
+        // Rewriting descendants in that case is not just wasted work - it would also bump their
+        // UpdatedAtUtc for no real change, which is observable and wrong.
+        var gaming = New("Gaming");
+        var steam = New("Steam", gaming);
+
+        var result = AccountTree.Rename(gaming, "GAMING", siblings: [], descendants: [steam], Later);
+
+        result.IsSuccess.Should().BeTrue();
+        gaming.Path.Should().Be("/expense/gaming");
+        steam.Path.Should().Be("/expense/gaming/steam");
+        steam.UpdatedAtUtc.Should().Be(Now, "the descendant's path never changed");
+    }
+
+    [Fact]
     public void Moving_a_node_reparents_it_and_rewrites_the_whole_subtree()
     {
         var gaming = New("Gaming");
@@ -166,5 +183,33 @@ public sealed class AccountTreeTests
 
         AccountTree.Move(gaming, hobbies, newSiblings: [existingGaming], descendants: [], Later)
             .Error!.Code.Should().Be("account.duplicate_sibling_name");
+    }
+
+    [Fact]
+    public void DescendantsOf_throws_for_a_null_root_or_a_null_collection()
+    {
+        var gaming = New("Gaming");
+
+        var actNullRoot = () => AccountTree.DescendantsOf(null!, [gaming]);
+        var actNullAll = () => AccountTree.DescendantsOf(gaming, null!);
+
+        actNullRoot.Should().Throw<ArgumentNullException>();
+        actNullAll.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Rename_throws_for_a_null_account()
+    {
+        var act = () => AccountTree.Rename(null!, "Games", siblings: [], descendants: [], Later);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Move_throws_for_a_null_account()
+    {
+        var act = () => AccountTree.Move(null!, newParent: null, newSiblings: [], descendants: [], Later);
+
+        act.Should().Throw<ArgumentNullException>();
     }
 }

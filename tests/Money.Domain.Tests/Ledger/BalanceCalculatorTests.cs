@@ -241,4 +241,177 @@ public sealed class BalanceCalculatorTests
         BalanceCalculator.BalanceOf(usdBank.Id, Currency.Eur, new[] { transaction })
             .Should().Be(Eur(0));
     }
+
+    [Fact]
+    public void IsInSubtree_throws_for_a_null_candidate_or_a_null_root()
+    {
+        var actNullCandidate = () => BalanceCalculator.IsInSubtree(null!, _gaming);
+        var actNullRoot = () => BalanceCalculator.IsInSubtree(_gaming, null!);
+
+        actNullCandidate.Should().Throw<ArgumentNullException>();
+        actNullRoot.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void BalanceOf_throws_for_a_null_currency_or_a_null_transaction_sequence()
+    {
+        // A non-empty transaction touching the queried account is deliberate: with an empty
+        // list, removing the currency guard is masked by MoneyValue.Of's own null check at the
+        // very end (same exception type, different call site). A real posting forces the method
+        // to dereference currency.Code inside the loop, where a missing guard surfaces as a
+        // NullReferenceException instead - genuinely distinguishing the two.
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 1)) };
+
+        var actNullCurrency = () => BalanceCalculator.BalanceOf(_bank.Id, null!, transactions);
+        var actNullTransactions = () => BalanceCalculator.BalanceOf(_bank.Id, Currency.Eur, null!);
+
+        actNullCurrency.Should().Throw<ArgumentNullException>();
+        actNullTransactions.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void SubtreeBalance_throws_for_any_null_argument()
+    {
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 1)) };
+
+        // An empty lookup, not Accounts, for the null-root case: with a populated lookup, a
+        // posting resolves to a real account and IsInSubtree's own null check on root fires
+        // first, masking a missing guard here behind the same exception type. With nothing to
+        // resolve, IsInSubtree is never reached, so only this method's own guard can explain an
+        // exception - which is exactly what should distinguish "guard present" from "removed".
+        var actNullRoot = () => BalanceCalculator.SubtreeBalance(
+            null!, Currency.Eur, new Dictionary<Guid, Account>(), transactions);
+        var actNullCurrency = () => BalanceCalculator.SubtreeBalance(_gaming, null!, Accounts, transactions);
+        var actNullAccounts = () => BalanceCalculator.SubtreeBalance(_gaming, Currency.Eur, null!, transactions);
+        var actNullTransactions = () => BalanceCalculator.SubtreeBalance(_gaming, Currency.Eur, Accounts, null!);
+
+        actNullRoot.Should().Throw<ArgumentNullException>();
+        actNullCurrency.Should().Throw<ArgumentNullException>();
+        actNullAccounts.Should().Throw<ArgumentNullException>();
+        actNullTransactions.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void TotalSpending_throws_for_any_null_argument()
+    {
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 5)) };
+
+        var actNullCurrency = () => BalanceCalculator.TotalSpending(null!, Accounts, transactions, September);
+        var actNullAccounts = () => BalanceCalculator.TotalSpending(Currency.Eur, null!, transactions, September);
+        var actNullTransactions = () => BalanceCalculator.TotalSpending(Currency.Eur, Accounts, null!, September);
+
+        actNullCurrency.Should().Throw<ArgumentNullException>();
+        actNullAccounts.Should().Throw<ArgumentNullException>();
+        actNullTransactions.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void A_voided_transaction_is_excluded_from_a_subtree_balance()
+    {
+        var kept = Spend(_gaming, 1000, new DateOnly(2026, 9, 1));
+        var voided = Spend(_gaming, 9999, new DateOnly(2026, 9, 2));
+        voided.Void("Mistake", Now);
+
+        BalanceCalculator.SubtreeBalance(_gaming, Currency.Eur, Accounts, new[] { kept, voided })
+            .Should().Be(Eur(1000));
+    }
+
+    [Fact]
+    public void A_subtree_balance_excludes_postings_in_a_different_currency_than_queried()
+    {
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 1)) };
+
+        BalanceCalculator.SubtreeBalance(_gaming, Currency.Usd, Accounts, transactions)
+            .Should().Be(MoneyValue.Of(0, Currency.Usd));
+    }
+
+    [Fact]
+    public void A_subtree_balance_ignores_a_posting_whose_account_is_missing_from_the_lookup()
+    {
+        // accountsById can be a partial view of the tree (e.g. one page of accounts). A posting
+        // for an account outside that view must be skipped, not crash the calculation.
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 1)) };
+        var incompleteLookup = new[] { _gaming }.ToDictionary(a => a.Id);
+
+        BalanceCalculator.SubtreeBalance(_gaming, Currency.Eur, incompleteLookup, transactions)
+            .Should().Be(Eur(1000));
+    }
+
+    [Fact]
+    public void Total_spending_excludes_postings_in_a_different_currency_than_queried()
+    {
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 5)) };
+
+        BalanceCalculator.TotalSpending(Currency.Usd, Accounts, transactions, September)
+            .Should().Be(MoneyValue.Of(0, Currency.Usd));
+    }
+
+    [Fact]
+    public void Total_spending_ignores_a_posting_whose_account_is_missing_from_the_lookup()
+    {
+        var transactions = new[] { Spend(_gaming, 1000, new DateOnly(2026, 9, 5)) };
+        var incompleteLookup = new[] { _gaming }.ToDictionary(a => a.Id);
+
+        BalanceCalculator.TotalSpending(Currency.Eur, incompleteLookup, transactions, September)
+            .Should().Be(Eur(1000));
+    }
+
+    // The three tests below pin genuine money-safety behaviour, not just line coverage: every
+    // running total in BalanceCalculator is summed inside `checked(...)`. Silently wrapping past
+    // long.MaxValue instead of throwing would be a real hole in the money logic (a huge balance
+    // could wrap around to a small or negative number without any error), so each test forces an
+    // overflow across two legitimately-balanced transactions and asserts it surfaces as an
+    // OverflowException rather than a wrong-but-plausible balance.
+    private const long NearMax = 9_000_000_000_000_000_000L; // just under long.MaxValue / 2 * 2 overflows
+
+    [Fact]
+    public void BalanceOf_throws_on_overflow_instead_of_silently_wrapping()
+    {
+        var vault = Account.Create(Guid.CreateVersion7(Now), "Vault", AccountKind.Asset,
+                                   AccountRole.Cash, null, Currency.Eur, Now).Value;
+        var lookup = new[] { _bank, vault }.ToDictionary(a => a.Id);
+
+        var first = Transaction.Create(Guid.CreateVersion7(Now), new DateOnly(2026, 1, 1), "Huge", null,
+            TransactionSourceKind.Manual, null,
+            [new PostingDraft(_bank.Id, Eur(NearMax)), new PostingDraft(vault.Id, Eur(-NearMax))],
+            lookup, Now).Value;
+        var second = Transaction.Create(Guid.CreateVersion7(Now), new DateOnly(2026, 1, 2), "Huge again", null,
+            TransactionSourceKind.Manual, null,
+            [new PostingDraft(_bank.Id, Eur(NearMax)), new PostingDraft(vault.Id, Eur(-NearMax))],
+            lookup, Now).Value;
+
+        var act = () => BalanceCalculator.BalanceOf(_bank.Id, Currency.Eur, [first, second]);
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact]
+    public void SubtreeBalance_throws_on_overflow_instead_of_silently_wrapping()
+    {
+        var lookup = new[] { _bank, _gaming, _steam }.ToDictionary(a => a.Id);
+
+        var onParent = Transaction.Create(Guid.CreateVersion7(Now), new DateOnly(2026, 1, 1), "Huge", null,
+            TransactionSourceKind.Manual, null,
+            [new PostingDraft(_gaming.Id, Eur(NearMax)), new PostingDraft(_bank.Id, Eur(-NearMax))],
+            lookup, Now).Value;
+        var onChild = Transaction.Create(Guid.CreateVersion7(Now), new DateOnly(2026, 1, 2), "Huge again", null,
+            TransactionSourceKind.Manual, null,
+            [new PostingDraft(_steam.Id, Eur(NearMax)), new PostingDraft(_bank.Id, Eur(-NearMax))],
+            lookup, Now).Value;
+
+        var act = () => BalanceCalculator.SubtreeBalance(_gaming, Currency.Eur, lookup, [onParent, onChild]);
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact]
+    public void TotalSpending_throws_on_overflow_instead_of_silently_wrapping()
+    {
+        var first = Spend(_gaming, NearMax, new DateOnly(2026, 9, 5));
+        var second = Spend(_steam, NearMax, new DateOnly(2026, 9, 6));
+
+        var act = () => BalanceCalculator.TotalSpending(Currency.Eur, Accounts, [first, second], September);
+
+        act.Should().Throw<OverflowException>();
+    }
 }

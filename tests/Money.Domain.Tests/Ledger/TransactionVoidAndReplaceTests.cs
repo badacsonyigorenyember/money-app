@@ -113,6 +113,33 @@ public sealed class TransactionVoidAndReplaceTests
     }
 
     [Fact]
+    public void Replace_throws_for_null_postings_or_a_null_account_lookup()
+    {
+        var transaction = ADinner();
+        var postings = new[] { new PostingDraft(_fun.Id, Eur(1500)), new PostingDraft(_bank.Id, Eur(-1500)) };
+
+        var actNullPostings = () => transaction.Replace(
+            Today, "Cinema", null, null!, Accounts, Later);
+        var actNullAccounts = () => transaction.Replace(
+            Today, "Cinema", null, postings, null!, Later);
+
+        actNullPostings.Should().Throw<ArgumentNullException>();
+        actNullAccounts.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void ToString_flags_a_voided_transaction_but_not_a_live_one()
+    {
+        var transaction = ADinner();
+
+        transaction.ToString().Should().NotContain("[voided]");
+
+        transaction.Void("Mistake", Later);
+
+        transaction.ToString().Should().Contain("[voided]");
+    }
+
+    [Fact]
     public void An_external_reference_can_be_attached_and_cleared()
     {
         var transaction = ADinner();
