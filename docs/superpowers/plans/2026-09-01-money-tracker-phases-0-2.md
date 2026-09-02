@@ -5686,7 +5686,7 @@ git commit -m "feat: add EF Core model, database check constraints, idempotency 
 
 Spec D10 and section 14: the database must not live beside the executable, because the project folder sits on the Desktop and is frequently OneDrive-synced; a synced SQLite file in WAL mode can be corrupted by the sync client.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Infrastructure.Persistence;
@@ -5785,12 +5785,12 @@ public sealed class DatabaseInitializerTests : IDisposable
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "DataDirectoryTests|DatabaseInitializerTests"`
 Expected: FAIL — `DataDirectory` does not exist.
 
-- [ ] **Step 3: Implement `DataDirectory`**
+- [x] **Step 3: Implement `DataDirectory`**
 
 ```csharp
 using Microsoft.Data.Sqlite;
@@ -5832,7 +5832,7 @@ public static class DataDirectory
 }
 ```
 
-- [ ] **Step 4: Implement the pragma interceptor**
+- [x] **Step 4: Implement the pragma interceptor**
 
 `journal_mode` is persistent once set, but `busy_timeout` is per-connection, so it must be applied on every open.
 
@@ -5872,7 +5872,7 @@ public sealed class SqlitePragmaInterceptor : DbConnectionInterceptor
 
 An in-memory database ignores `journal_mode=WAL` (it stays `memory`), which is fine — the tests assert on `foreign_keys`, which does apply.
 
-- [ ] **Step 5: Implement `DatabaseInitializer`**
+- [x] **Step 5: Implement `DatabaseInitializer`**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -5917,14 +5917,14 @@ public sealed class DatabaseInitializer(
 
 The `alreadyApplied.Any()` guard means a first run on an empty machine does not try to back up a database that does not exist yet.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "DataDirectoryTests|DatabaseInitializerTests"`
 Expected: PASS.
 
 The `DataDirectoryTests` use Windows-shaped literal paths. On the Linux CI runner `Path.Combine` still behaves consistently for these assertions because the expected values are also built with `Path.Combine` — except the two `[InlineData]`-free cases that hard-code separators. If CI reports a failure there, change those assertions to build the expected value with `Path.Combine` too rather than weakening the test.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Infrastructure tests/Money.Application.Tests
