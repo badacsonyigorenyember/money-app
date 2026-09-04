@@ -32,7 +32,7 @@ public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions op
 
         try
         {
-            using var destination = new SqliteConnection($"DataSource={path}");
+            using var destination = new SqliteConnection($"DataSource={path};Pooling=False");
             destination.Open();
             source.BackupDatabase(destination);
         }
@@ -41,11 +41,13 @@ public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions op
             if (wasClosed) source.Close();
         }
 
-        // Microsoft.Data.Sqlite pools the native connection even after Dispose, which would
-        // otherwise leave the just-written file (and any older backup file previously opened
-        // the same way) locked on Windows when retention tries to delete it.
-        SqliteConnection.ClearAllPools();
-
+        // Pooling=False above (not SqliteConnection.ClearAllPools) keeps this fix scoped to the
+        // connection this method opened: without it, Microsoft.Data.Sqlite would keep a pooled
+        // native handle on the just-written file after Dispose, and a later File.Delete of that
+        // same file (once it falls out of retention) would throw IOException on Windows.
+        // ClearAllPools() would fix the same symptom but reaches every pooled SQLite connection
+        // in the process, forcing unrelated reconnects elsewhere - too broad for what is a
+        // single connection's lifecycle problem.
         ApplyRetention(backupDirectory);
         return Task.FromResult(path);
     }
