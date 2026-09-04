@@ -14,6 +14,14 @@ public sealed class PostingConfiguration : IEntityTypeConfiguration<Posting>
 
         builder.HasKey(p => p.Id);
 
+        // Ids are always assigned by domain code (Guid.CreateVersion7), never by the database.
+        // Without this, EF's default convention for Guid keys assumes database generation, so a
+        // freshly-created Posting discovered only through a Replace()'d collection navigation
+        // (never explicitly Added) is mistaken for an already-existing row and gets an UPDATE
+        // instead of an INSERT - which then fails as a concurrency exception because no such row
+        // exists yet.
+        builder.Property(p => p.Id).ValueGeneratedNever();
+
         builder.Property(p => p.AmountMinor).HasColumnType("INTEGER").IsRequired();
         builder.Property(p => p.CurrencyCode).HasMaxLength(3).IsFixedLength().IsRequired();
         builder.Property(p => p.Memo).HasMaxLength(500);
