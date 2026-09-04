@@ -9536,7 +9536,7 @@ git commit -m "feat: add API composition root, hosting mode, Problem Details map
 - Produces extension methods on `RouteGroupBuilder`: `MapAccountEndpoints()`, `MapCategoryEndpoints()`, `MapSettingsEndpoints()`, each returning the group.
 - Routes (spec section 9): `GET/POST /accounts`, `PATCH /accounts/{id}`, `POST /accounts/{id}/archive`, `GET /accounts/{id}/balance`, `GET/POST /categories`, `GET/PUT /settings`, `POST /settings/first-run`.
 
-- [ ] **Step 1: Write the failing endpoint tests**
+- [x] **Step 1: Write the failing endpoint tests**
 
 ```csharp
 using System.Net;
@@ -9723,12 +9723,12 @@ public sealed class SettingsEndpointTests : IClassFixture<ApiFactory>
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests`
 Expected: FAIL — the endpoints are not mapped.
 
-- [ ] **Step 3: Implement `AccountEndpoints`**
+- [x] **Step 3: Implement `AccountEndpoints`**
 
 ```csharp
 using Money.Api.Infrastructure;
@@ -9788,7 +9788,7 @@ public static class AccountEndpoints
 }
 ```
 
-- [ ] **Step 4: Implement `CategoryEndpoints` and `SettingsEndpoints`**
+- [x] **Step 4: Implement `CategoryEndpoints` and `SettingsEndpoints`**
 
 ```csharp
 using Money.Api.Infrastructure;
@@ -9864,14 +9864,14 @@ public static class SettingsEndpoints
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests`
 Expected: PASS for the account, category, settings and Problem Details tests.
 
 `AccountEndpointTests` and `SettingsEndpointTests` share one `ApiFactory` (and therefore one database) across the class. The tests above use random names precisely so they do not collide. Keep that discipline for every new API test.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
