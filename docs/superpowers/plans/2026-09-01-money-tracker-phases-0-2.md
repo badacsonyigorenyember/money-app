@@ -8659,7 +8659,7 @@ git commit -m "feat: add settings use cases and the first-run setup that seeds t
 
 Two classes implement `IExportService`, so the handler takes a **resolver function** rather than the services themselves: `Func<string, IExportService?>`. The alternative — keyed services with `[FromKeyedServices]` — would put an ASP.NET Core attribute in `Money.Application`, which the dependency-rule architecture test forbids. The factory is supplied at composition time in Task 26.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Text.Json;
@@ -8787,12 +8787,12 @@ public sealed class BackupAndExportTests : IDisposable
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter BackupAndExportTests`
 Expected: FAIL — the services do not exist.
 
-- [ ] **Step 3: Implement `SqliteBackupService`**
+- [x] **Step 3: Implement `SqliteBackupService`**
 
 ```csharp
 using System.Globalization;
@@ -8873,7 +8873,7 @@ public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions op
 
 Retention orders by **file name**, not creation time: the name carries a sortable timestamp, and file-system timestamps can be rewritten by sync clients or restores.
 
-- [ ] **Step 4: Implement the two export services**
+- [x] **Step 4: Implement the two export services**
 
 ```csharp
 using System.Text.Json;
@@ -9008,7 +9008,7 @@ public sealed class CsvExportService(MoneyDbContext context) : IExportService
 
 Amounts are exported as **minor units**, not as decimals: a spreadsheet that reads `20.00` as a float is exactly the failure mode spec D8 exists to prevent. Document this in the export screen's help text.
 
-- [ ] **Step 5: Implement `LocalCurrentUser` and the three admin handlers**
+- [x] **Step 5: Implement `LocalCurrentUser` and the three admin handlers**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -9099,12 +9099,12 @@ public sealed class RunIntegrityCheckHandler(IIntegrityChecker checker)
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter BackupAndExportTests`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Infrastructure src/Money.Application tests/Money.Application.Tests
