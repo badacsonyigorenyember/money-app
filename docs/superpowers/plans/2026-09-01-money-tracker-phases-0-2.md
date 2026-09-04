@@ -7400,7 +7400,7 @@ git commit -m "feat: add account and category use cases over real SQLite"
 
 **Request amounts are display amounts.** A line's `Amount` is what the user typed for that account, so it goes through `DisplayAmountMapper.ToStored` with that account's kind. This is the only conversion point on the write path.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -7594,12 +7594,12 @@ public sealed class TransactionUseCaseTests : IAsyncLifetime, IDisposable
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter TransactionUseCaseTests`
 Expected: FAIL — the handlers do not exist.
 
-- [ ] **Step 3: Implement `TransactionMapper`**
+- [x] **Step 3: Implement `TransactionMapper`**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -7656,7 +7656,7 @@ public static class TransactionMapper
 }
 ```
 
-- [ ] **Step 4: Implement the handlers**
+- [x] **Step 4: Implement the handlers**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -7859,17 +7859,17 @@ public sealed class ListTransactionsHandler(ILedgerQueries queries)
 
 Note that `Replace` mutates a tracked entity whose old postings must be deleted. EF's cascade on the owned collection handles this because `_postings` is the backing field of a configured collection navigation: clearing it marks the removed postings as deleted. Verify this in the replace test — if orphaned postings survive, add `context.Postings.RemoveRange(...)` inside a repository method rather than reaching into EF from the application layer.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter TransactionUseCaseTests`
 Expected: PASS, 9 tests.
 
-- [ ] **Step 6: Run the whole suite**
+- [x] **Step 6: Run the whole suite**
 
 Run: `dotnet test`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Application tests/Money.Application.Tests
