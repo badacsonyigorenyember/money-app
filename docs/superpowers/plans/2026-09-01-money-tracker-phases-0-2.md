@@ -9138,7 +9138,7 @@ git commit -m "feat: add SQLite online backup with retention, JSON and CSV expor
 
 `type` is `https://moneyapp.local/problems/{code}`, `title` is a short human phrase, `detail` is `error.Message`, and an extension member `code` carries the raw error code so a client can branch without parsing URLs.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Net;
@@ -9224,7 +9224,7 @@ public sealed class HealthAndProblemDetailsTests : IClassFixture<ApiFactory>
 }
 ```
 
-- [ ] **Step 2: Write the API test factory**
+- [x] **Step 2: Write the API test factory**
 
 ```csharp
 using Microsoft.AspNetCore.Hosting;
@@ -9282,12 +9282,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
 Every API test class that needs a genuinely empty database constructs its own `ApiFactory`; classes that share one via `IClassFixture` must use random names so they cannot collide.
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests`
 Expected: FAIL — `Program` is not accessible and the endpoints do not exist.
 
-- [ ] **Step 4: Implement `HostingMode` and `DomainErrorResults`**
+- [x] **Step 4: Implement `HostingMode` and `DomainErrorResults`**
 
 ```csharp
 namespace Money.Api;
@@ -9356,7 +9356,7 @@ public static class DomainErrorResults
 }
 ```
 
-- [ ] **Step 5: Implement `DependencyInjection`**
+- [x] **Step 5: Implement `DependencyInjection`**
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -9447,7 +9447,7 @@ public static class DependencyInjection
 }
 ```
 
-- [ ] **Step 6: Implement `Program.cs`**
+- [x] **Step 6: Implement `Program.cs`**
 
 ```csharp
 using Money.Api;
@@ -9497,7 +9497,7 @@ public partial class Program;
 
 `Program.cs` is on the ambient-time allow-list, but it does not actually read the clock — keep it that way.
 
-- [ ] **Step 7: Write `appsettings.json`**
+- [x] **Step 7: Write `appsettings.json`**
 
 ```json
 {
@@ -9512,12 +9512,12 @@ public partial class Program;
 }
 ```
 
-- [ ] **Step 8: Run the tests**
+- [x] **Step 8: Run the tests**
 
 Run: `dotnet test tests/Money.Api.Tests --filter HealthAndProblemDetailsTests`
 Expected: the health and OpenAPI tests PASS; the three account tests still FAIL because Task 27 has not added the endpoints. Leave them red and move on — that is the next task's starting condition.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
