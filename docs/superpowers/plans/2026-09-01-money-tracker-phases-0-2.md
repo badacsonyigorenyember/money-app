@@ -6706,7 +6706,7 @@ git commit -m "feat: add EF repositories, ledger read queries and the integrity 
   - `static class AccountMapper` — `static AccountDto ToDto(Account)`, `static Result<AccountKind> ParseKind(string?)`, `static Result<AccountRole> ParseRole(string?)`
   - `sealed class UseCaseHarness : IDisposable` in the test project — wires a `SqliteFixture` to real repositories and a `FakeClock`.
 
-- [ ] **Step 1: Write the use-case harness**
+- [x] **Step 1: Write the use-case harness**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -6750,7 +6750,7 @@ public sealed class UseCaseHarness : IDisposable
 }
 ```
 
-- [ ] **Step 2: Write the failing account use-case tests**
+- [x] **Step 2: Write the failing account use-case tests**
 
 ```csharp
 using Money.Application.Accounts;
@@ -6910,7 +6910,7 @@ public sealed class AccountUseCaseTests : IDisposable
 
 If the xUnit version in use does not expose `TestContext.Current.CancellationToken`, pass `CancellationToken.None` instead — keep it explicit rather than relying on a default parameter, so a hung query in CI is diagnosable.
 
-- [ ] **Step 3: Write the failing category use-case tests**
+- [x] **Step 3: Write the failing category use-case tests**
 
 ```csharp
 using Money.Application.Categories;
@@ -6991,12 +6991,12 @@ public sealed class CategoryUseCaseTests : IDisposable
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "AccountUseCaseTests|CategoryUseCaseTests"`
 Expected: FAIL — the handlers do not exist.
 
-- [ ] **Step 5: Implement `AccountMapper`**
+- [x] **Step 5: Implement `AccountMapper`**
 
 ```csharp
 using Money.Application.Contracts;
@@ -7029,7 +7029,7 @@ public static class AccountMapper
 }
 ```
 
-- [ ] **Step 6: Implement the account handlers**
+- [x] **Step 6: Implement the account handlers**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -7264,7 +7264,7 @@ public sealed class GetAccountBalanceHandler(IAccountRepository accounts, ILedge
 }
 ```
 
-- [ ] **Step 7: Implement the category handlers**
+- [x] **Step 7: Implement the category handlers**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -7367,12 +7367,12 @@ public sealed class GetCategoryTreeHandler(IAccountRepository accounts)
 }
 ```
 
-- [ ] **Step 8: Run the tests to verify they pass**
+- [x] **Step 8: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "AccountUseCaseTests|CategoryUseCaseTests"`
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/Money.Application src/Money.Domain tests/Money.Application.Tests
