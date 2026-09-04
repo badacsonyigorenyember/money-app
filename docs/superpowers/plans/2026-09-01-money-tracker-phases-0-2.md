@@ -7892,7 +7892,7 @@ git commit -m "feat: add transaction create, read, replace, void and list use ca
 
 These two back the quick-add control, which success criterion 1 ("recording a normal expense takes under five seconds") depends on. When `OccurredOn` is omitted they default to **today in the configured time zone**, resolved through `PeriodResolver.TodayIn` — never `DateTime.Today`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Application.Accounts;
@@ -8028,12 +8028,12 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter SugarUseCaseTests`
 Expected: FAIL — the handlers do not exist.
 
-- [ ] **Step 3: Implement a shared "today" helper**
+- [x] **Step 3: Implement a shared "today" helper**
 
 Create `src/Money.Application/Abstractions/TodayResolver.cs`:
 
@@ -8059,7 +8059,7 @@ public static class TodayResolver
 }
 ```
 
-- [ ] **Step 4: Implement `QuickExpenseHandler`**
+- [x] **Step 4: Implement `QuickExpenseHandler`**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -8118,7 +8118,7 @@ public sealed class QuickExpenseHandler(
 }
 ```
 
-- [ ] **Step 5: Implement `TransferHandler`**
+- [x] **Step 5: Implement `TransferHandler`**
 
 ```csharp
 using Money.Application.Abstractions;
@@ -8181,12 +8181,12 @@ public sealed class TransferHandler(
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter SugarUseCaseTests`
 Expected: PASS, 9 tests.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Application tests/Money.Application.Tests
