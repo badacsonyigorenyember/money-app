@@ -1,3 +1,4 @@
+using Money.Application.Accounts;
 using Money.Application.Categories;
 using Money.Application.Contracts;
 
@@ -72,5 +73,31 @@ public sealed class CategoryUseCaseTests : IDisposable
             .HandleAsync("Expense", false, CancellationToken.None);
 
         tree.Select(n => n.Name).Should().ContainInOrder("Apples", "Zoo");
+    }
+
+    [Fact]
+    public async Task Archiving_a_category_with_an_active_child_is_refused_so_the_tree_and_flat_list_agree()
+    {
+        var gaming = (await Create.HandleAsync(new CreateCategoryRequest("Gaming", "Expense", null),
+                                               CancellationToken.None)).Value;
+        await Create.HandleAsync(new CreateCategoryRequest("Steam", "Expense", gaming.Id),
+                                 CancellationToken.None);
+
+        var archiveResult = await new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(gaming.Id, CancellationToken.None);
+
+        archiveResult.IsSuccess.Should().BeFalse();
+        archiveResult.Error!.Code.Should().Be("account.archive_blocked_by_active_descendants");
+
+        // The state F1 identified - an archived parent hiding an active child from the tree
+        // while the flat list still reports it - must now be unreachable, not merely unrendered.
+        var tree = await new GetCategoryTreeHandler(_harness.Accounts)
+            .HandleAsync("Expense", includeArchived: false, CancellationToken.None);
+        var flatList = await new ListAccountsHandler(_harness.Accounts)
+            .HandleAsync("Expense", "Category", includeArchived: false, CancellationToken.None);
+
+        tree.Single(n => n.Name == "Gaming").Children.Should().ContainSingle(c => c.Name == "Steam");
+        flatList.Should().Contain(a => a.Name == "Gaming");
+        flatList.Should().Contain(a => a.Name == "Steam");
     }
 }

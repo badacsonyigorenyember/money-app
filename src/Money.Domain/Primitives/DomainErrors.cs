@@ -82,6 +82,11 @@ public static class DomainErrors
         public static DomainError NameUnusable(string name) =>
             new("account.name_unusable",
                 $"'{name}' contains no letters or digits, so it cannot form a path segment.");
+
+        public static DomainError HasActiveDescendants(string name, bool isCategory) =>
+            new("account.archive_blocked_by_active_descendants",
+                $"'{name}' still has active {(isCategory ? "categories" : "accounts")} underneath it. " +
+                "Archive those first.");
     }
 
     public static class Transaction

@@ -11,6 +11,10 @@ public sealed class ArchiveAccountHandler(IAccountRepository accounts, IUnitOfWo
         var account = await accounts.FindAsync(id, cancellationToken);
         if (account is null) return Result.Fail(DomainErrors.Account.NotFound(id));
 
+        var descendants = await accounts.DescendantsOfAsync(account.ChildPathPrefix, cancellationToken);
+        if (descendants.Any(d => !d.IsArchived))
+            return Result.Fail(DomainErrors.Account.HasActiveDescendants(account.Name, account.IsCategory));
+
         var archived = account.Archive(clock.UtcNow);
         if (archived.IsFailure) return archived;
 

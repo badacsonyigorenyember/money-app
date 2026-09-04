@@ -150,4 +150,71 @@ public sealed class AccountUseCaseTests : IDisposable
         (await handler.HandleAsync(Guid.NewGuid(), null, CancellationToken.None))
             .Error!.Code.Should().Be("account.not_found");
     }
+
+    [Fact]
+    public async Task Archiving_a_leaf_account_succeeds()
+    {
+        var cash = (await Create.HandleAsync(
+            new CreateAccountRequest("Cash", "Asset", "Cash", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        var result = await new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(cash.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        (await _harness.Accounts.FindAsync(cash.Id))!.IsArchived.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Archiving_a_parent_with_an_active_child_is_refused()
+    {
+        var gaming = (await Create.HandleAsync(
+            new CreateAccountRequest("Gaming", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+        await Create.HandleAsync(
+            new CreateAccountRequest("Steam", "Expense", "Category", gaming.Id, "EUR", null, null),
+            CancellationToken.None);
+
+        var result = await new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(gaming.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("account.archive_blocked_by_active_descendants");
+        (await _harness.Accounts.FindAsync(gaming.Id))!.IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Archiving_a_parent_whose_only_descendant_is_already_archived_succeeds()
+    {
+        var gaming = (await Create.HandleAsync(
+            new CreateAccountRequest("Gaming", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+        var steam = (await Create.HandleAsync(
+            new CreateAccountRequest("Steam", "Expense", "Category", gaming.Id, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        var archive = new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock);
+        await archive.HandleAsync(steam.Id, CancellationToken.None);
+
+        var result = await archive.HandleAsync(gaming.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        (await _harness.Accounts.FindAsync(gaming.Id))!.IsArchived.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_similarly_named_sibling_does_not_block_archiving()
+    {
+        var gaming = (await Create.HandleAsync(
+            new CreateAccountRequest("Gaming", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+        await Create.HandleAsync(
+            new CreateAccountRequest("Gaming PC", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None);
+
+        var result = await new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(gaming.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
 }
