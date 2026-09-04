@@ -8209,7 +8209,7 @@ git commit -m "feat: add quick-expense and transfer use cases with time-zone-cor
   - `sealed class CompleteFirstRunSetupHandler(ISettingsRepository, IAccountRepository, ITransactionRepository, IUnitOfWork, IClock)` — `Task<Result<SettingsDto>> HandleAsync(FirstRunRequest, CancellationToken)`
   - `static class StarterCategories` — `static IReadOnlyList<string> Expense` = Housing, Groceries, Eating out, Alcohol, Gaming, Transport, Health, Subscriptions, Other; `static IReadOnlyList<string> Income` = Salary, Other income (spec section 10)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using Money.Application.Contracts;
@@ -8376,12 +8376,12 @@ public sealed class FirstRunTests : IDisposable
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "SettingsUseCaseTests|FirstRunTests"`
 Expected: FAIL — the handlers do not exist.
 
-- [ ] **Step 3: Implement a settings mapper and the two settings handlers**
+- [x] **Step 3: Implement a settings mapper and the two settings handlers**
 
 Add to `src/Money.Application/Mapping/SettingsMapper.cs`:
 
@@ -8499,7 +8499,7 @@ public sealed class UpdateSettingsHandler(ISettingsRepository settings, IUnitOfW
 }
 ```
 
-- [ ] **Step 4: Implement the starter categories and first-run handler**
+- [x] **Step 4: Implement the starter categories and first-run handler**
 
 ```csharp
 namespace Money.Application.FirstRun;
@@ -8625,12 +8625,12 @@ public sealed class CompleteFirstRunSetupHandler(
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Application.Tests --filter "SettingsUseCaseTests|FirstRunTests"`
 Expected: PASS, 11 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Application tests/Money.Application.Tests
