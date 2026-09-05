@@ -11035,7 +11035,7 @@ git commit -m "feat: add HTMX shell and the transactions screen with quick-add"
 **Interfaces:**
 - Produces: `CategoriesModel : PageModel` with `OnGetAsync`, `OnPostCreateAsync(string name, Guid? parentCategoryId)`, `OnPostRenameAsync(Guid id, string name)`, `OnPostArchiveAsync(Guid id)`; `AccountsModel : PageModel` with `OnGetAsync`, `OnPostCreateAsync(...)`, `OnPostArchiveAsync(Guid id)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Net;
@@ -11099,12 +11099,12 @@ public sealed class CategoriesPageTests : IClassFixture<ApiFactory>
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests --filter CategoriesPageTests`
 Expected: FAIL — the pages do not exist.
 
-- [ ] **Step 3: Implement `CategoriesModel` and its view**
+- [x] **Step 3: Implement `CategoriesModel` and its view**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -11252,7 +11252,7 @@ public sealed class CategoriesModel(
 </li>
 ```
 
-- [ ] **Step 4: Implement `AccountsModel` and its view**
+- [x] **Step 4: Implement `AccountsModel` and its view**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -11383,12 +11383,12 @@ public sealed class AccountsModel(
 </div>
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests --filter CategoriesPageTests`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
