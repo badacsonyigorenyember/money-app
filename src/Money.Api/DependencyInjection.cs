@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Money.Api.Infrastructure;
 using Money.Application.Abstractions;
 using Money.Application.Accounts;
 using Money.Application.Admin;
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ILedgerQueries, LedgerQueries>();
         services.AddScoped<IIntegrityChecker, IntegrityChecker>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<IdempotencyFilter>();
 
         services.AddScoped<IBackupService>(provider => new SqliteBackupService(
             provider.GetRequiredService<MoneyDbContext>(),
