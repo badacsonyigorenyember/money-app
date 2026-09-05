@@ -11766,7 +11766,7 @@ git commit -m "feat: add first-run wizard and settings screen with backup, expor
 
 Spec section 13, phase 2 acceptance: *"a usable manual expense tracker. Round-trip: add expense, see it in the list, see the balance change."* This task turns that sentence into an executable test.
 
-- [ ] **Step 1: Write the failing acceptance test**
+- [x] **Step 1: Write the failing acceptance test**
 
 ```csharp
 using System.Net;
@@ -11899,12 +11899,12 @@ public sealed class RoundTripAcceptanceTests
 }
 ```
 
-- [ ] **Step 2: Run the acceptance test**
+- [x] **Step 2: Run the acceptance test**
 
 Run: `dotnet test tests/Money.Api.Tests --filter RoundTripAcceptanceTests`
 Expected: PASS. If it does not, the phase is not done — fix the product, not the test.
 
-- [ ] **Step 3: Run everything**
+- [x] **Step 3: Run everything**
 
 Run each and confirm:
 
@@ -11924,7 +11924,7 @@ dotnet stryker
 
 Record the actual numbers — total tests, mutation score — in the commit message. "All green" without numbers is not evidence.
 
-- [ ] **Step 4: Do the vocabulary review by hand**
+- [x] **Step 4: Do the vocabulary review by hand**
 
 Spec section 14 requires a UI review at the end of phase 2. Open every page in a browser (`dotnet run --project src/Money.Api`, then `http://localhost:5xxx`) and read it as the user would:
 
@@ -11935,7 +11935,7 @@ Spec section 14 requires a UI review at the end of phase 2. Open every page in a
 
 Fix what you find, with a test for anything that was wrong.
 
-- [ ] **Step 5: Write `docs/running-locally.md`**
+- [x] **Step 5: Write `docs/running-locally.md`**
 
 ```markdown
 # Running Money locally
@@ -11972,7 +11972,7 @@ Backups are written to `%APPDATA%\MoneyApp\backups\`, newest ten kept by default
 Migrations are applied at startup, after an automatic backup.
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/Money.Api.Tests docs/running-locally.md
