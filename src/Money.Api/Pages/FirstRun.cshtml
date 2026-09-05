@@ -16,12 +16,14 @@
 <form method="post">
     <fieldset>
         <legend>Currency</legend>
-        <select asp-for="BaseCurrencyCode">
-            <option value="EUR">EUR</option>
-            <option value="HUF">HUF</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-        </select>
+        <label>Currency
+            <select asp-for="BaseCurrencyCode">
+                <option value="EUR">EUR</option>
+                <option value="HUF">HUF</option>
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+            </select>
+        </label>
     </fieldset>
 
     <fieldset>
@@ -43,11 +45,13 @@
 
     <fieldset>
         <legend>Your first account</legend>
-        <input type="text" asp-for="FirstAccountName" required />
-        <select asp-for="FirstAccountRole">
-            <option value="Bank">Bank</option>
-            <option value="Cash">Cash</option>
-        </select>
+        <label>Name <input type="text" asp-for="FirstAccountName" required /></label>
+        <label>Type
+            <select asp-for="FirstAccountRole">
+                <option value="Bank">Bank</option>
+                <option value="Cash">Cash</option>
+            </select>
+        </label>
         <label>Starting balance <input type="number" asp-for="OpeningBalance" step="0.01" /></label>
         <label>As of <input type="date" asp-for="OpenedOn" required /></label>
     </fieldset>
