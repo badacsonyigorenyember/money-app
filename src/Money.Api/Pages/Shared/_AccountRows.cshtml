@@ -1,0 +1,32 @@
+@model Money.Api.Pages.AccountsModel
+
+<div id="accountRows">
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error">@Model.ErrorMessage</p>
+    }
+
+    <table>
+        <thead>
+            <tr><th>Account</th><th>Type</th><th class="amount">Balance</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr class="@(row.Account.IsArchived ? "muted" : null)">
+                <td>@row.Account.Name</td>
+                <td>@(row.Account.Role == "SavingsPocket" ? "Savings" : row.Account.Role)</td>
+                <td class="amount">@row.Balance.ToString("N2") @row.Account.CurrencyCode</td>
+                <td>
+                    @if (!row.Account.IsArchived)
+                    {
+                        <button hx-post="@($"/accounts?handler=Archive&id={row.Account.Id}")"
+                                hx-target="#accountRows" hx-swap="outerHTML"
+                                hx-confirm="Archive this account? Its history is kept.">Archive</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

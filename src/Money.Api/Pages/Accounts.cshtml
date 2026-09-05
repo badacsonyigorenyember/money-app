@@ -1,0 +1,21 @@
+@page
+@model AccountsModel
+@{ ViewData["Title"] = "Accounts"; }
+
+<h1>Accounts</h1>
+
+<form hx-post="/accounts?handler=Create" hx-target="#accountRows" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input type="text" name="name" placeholder="Account name" required />
+    <select name="role">
+        <option value="Bank">Bank</option>
+        <option value="Cash">Cash</option>
+        <option value="SavingsPocket">Savings</option>
+        <option value="Investment">Investment</option>
+    </select>
+    <input type="number" name="openingBalance" step="0.01" placeholder="Starting balance" />
+    <input type="date" name="openedOn" />
+    <button class="primary" type="submit">Add</button>
+</form>
+
+<partial name="Shared/_AccountRows" model="Model" />

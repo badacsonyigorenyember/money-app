@@ -1,0 +1,30 @@
+@page
+@model CategoriesModel
+@{ ViewData["Title"] = "Categories"; }
+
+<h1>Categories</h1>
+
+<form method="get">
+    <select name="kind" onchange="this.form.submit()">
+        <option value="Expense" selected="@(Model.Kind == "Expense")">Spending</option>
+        <option value="Income" selected="@(Model.Kind == "Income")">Income</option>
+    </select>
+    <label><input type="checkbox" name="includeArchived" value="true"
+                  checked="@Model.IncludeArchived" onchange="this.form.submit()" /> Show archived</label>
+</form>
+
+<form hx-post="@($"/categories?handler=Create&kind={Model.Kind}")"
+      hx-target="#tree" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input type="text" name="name" placeholder="New category" required />
+    <select name="parentCategoryId">
+        <option value="">Top level</option>
+        @foreach (var node in Model.Nodes)
+        {
+            <option value="@node.Id">@node.Name</option>
+        }
+    </select>
+    <button class="primary" type="submit">Add</button>
+</form>
+
+<partial name="Shared/_CategoryTree" model="Model" />

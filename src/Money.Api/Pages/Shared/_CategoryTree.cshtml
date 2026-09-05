@@ -1,0 +1,22 @@
+@model Money.Api.Pages.CategoriesModel
+
+<div id="tree">
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.Nodes.Count == 0)
+    {
+        <p class="muted">No categories yet.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var node in Model.Nodes)
+            {
+                @await Html.PartialAsync("Shared/_CategoryNode", node)
+            }
+        </ul>
+    }
+</div>

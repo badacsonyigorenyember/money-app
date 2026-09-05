@@ -1,0 +1,18 @@
+@model Money.Application.Contracts.CategoryNodeDto
+
+<li class="@(Model.IsArchived ? "muted" : null)">
+    <span>@Model.Name</span>
+    <button hx-post="@($"/categories?handler=Archive&id={Model.Id}")"
+            hx-target="#tree" hx-swap="outerHTML"
+            hx-confirm="Archive this category? Past transactions keep it.">Archive</button>
+
+    @if (Model.Children.Count > 0)
+    {
+        <ul>
+            @foreach (var child in Model.Children)
+            {
+                @await Html.PartialAsync("Shared/_CategoryNode", child)
+            }
+        </ul>
+    }
+</li>
