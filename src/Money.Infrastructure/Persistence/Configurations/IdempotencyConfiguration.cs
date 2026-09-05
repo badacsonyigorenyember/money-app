@@ -13,6 +13,7 @@ public sealed class IdempotencyConfiguration : IEntityTypeConfiguration<Idempote
 
         builder.Property(r => r.Key).HasMaxLength(200);
         builder.Property(r => r.Endpoint).HasMaxLength(200);
-        builder.Property(r => r.ResponseJson).IsRequired();
+        builder.Property(r => r.RequestBodyHash).IsRequired().HasMaxLength(64);
+        builder.Property(r => r.ResponseJson);
     }
 }

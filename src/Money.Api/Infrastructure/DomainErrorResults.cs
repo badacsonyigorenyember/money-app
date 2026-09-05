@@ -16,7 +16,8 @@ public static class DomainErrorResults
             || code.EndsWith(".already_initialised", StringComparison.Ordinal)
             || code.EndsWith(".already_archived", StringComparison.Ordinal)
             || code.Contains(".duplicate_", StringComparison.Ordinal)
-            || code.Contains("_blocked_by_", StringComparison.Ordinal))
+            || code.Contains("_blocked_by_", StringComparison.Ordinal)
+            || code.StartsWith("idempotency.", StringComparison.Ordinal))
         {
             return StatusCodes.Status409Conflict;
         }

@@ -154,4 +154,16 @@ public static class DomainErrors
         public static DomainError UnsupportedExportFormat(string format) =>
             new("admin.unsupported_export_format", $"'{format}' is not a supported export format.");
     }
+
+    public static class Idempotency
+    {
+        public static DomainError KeyReusedWithDifferentPayload() =>
+            new("idempotency.key_reused_with_different_payload",
+                "This Idempotency-Key was already used for a request with a different body. " +
+                "Use a new key for a different request.");
+
+        public static DomainError RequestInProgress() =>
+            new("idempotency.request_in_progress",
+                "A request with this Idempotency-Key is still being processed. Retry shortly.");
+    }
 }

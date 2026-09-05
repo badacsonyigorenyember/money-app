@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Money.Application.Contracts;
 
 namespace Money.Api.Tests;
@@ -195,5 +196,44 @@ public sealed class TransactionEndpointTests : IClassFixture<ApiFactory>
             CancellationToken.None);
 
         second!.Items.Select(i => i.Id).Should().NotIntersectWith(first.Items.Select(i => i.Id));
+    }
+
+    // F4: only the success path was covered before. A nonexistent id must 404, not throw or 400.
+    [Fact]
+    public async Task Voiding_a_nonexistent_transaction_is_a_404()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var response = await client.PostAsJsonAsync($"/api/v1/transactions/{Guid.NewGuid()}/void",
+            new { reason = "Doesn't exist" }, CancellationToken.None);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(CancellationToken.None);
+        problem.GetProperty("code").GetString().Should().Be("transaction.not_found");
+    }
+
+    // F4: voiding twice must be a reported conflict, not a silent no-op or a second void.
+    [Fact]
+    public async Task Voiding_an_already_voided_transaction_is_a_409()
+    {
+        using var client = _factory.CreateApiClient();
+        var (bank, category) = await SeedAsync(client);
+
+        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+            new { amount = 5m, categoryId = category, accountId = bank,
+                  occurredOn = "2026-09-01", description = "To void" },
+            CancellationToken.None))
+            .Content.ReadFromJsonAsync<TransactionDto>(CancellationToken.None);
+
+        var firstVoid = await client.PostAsJsonAsync($"/api/v1/transactions/{created!.Id}/void",
+            new { reason = "First" }, CancellationToken.None);
+        firstVoid.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var secondVoid = await client.PostAsJsonAsync($"/api/v1/transactions/{created.Id}/void",
+            new { reason = "Second" }, CancellationToken.None);
+
+        secondVoid.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        var problem = await secondVoid.Content.ReadFromJsonAsync<JsonElement>(CancellationToken.None);
+        problem.GetProperty("code").GetString().Should().Be("transaction.already_voided");
     }
 }
