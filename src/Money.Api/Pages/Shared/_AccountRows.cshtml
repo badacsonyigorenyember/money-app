@@ -1,4 +1,5 @@
 @model Money.Api.Pages.AccountsModel
+@using Money.Application.Presentation
 
 <div id="accountRows">
     @if (Model.ErrorMessage is not null)
@@ -16,7 +17,7 @@
             <tr class="@(row.Account.IsArchived ? "muted" : null)">
                 <td>@row.Account.Name</td>
                 <td>@(row.Account.Role == "SavingsPocket" ? "Savings" : row.Account.Role)</td>
-                <td class="amount">@row.Balance.ToString("N2") @row.Account.CurrencyCode</td>
+                <td class="amount">@CurrencyFormat.Format(row.Balance, row.Account.CurrencyCode) @row.Account.CurrencyCode</td>
                 <td>
                     @if (!row.Account.IsArchived)
                     {

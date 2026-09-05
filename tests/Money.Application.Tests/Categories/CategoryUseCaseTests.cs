@@ -10,7 +10,8 @@ public sealed class CategoryUseCaseTests : IDisposable
 
     public void Dispose() => _harness.Dispose();
 
-    private CreateCategoryHandler Create => new(_harness.Accounts, _harness.UnitOfWork, _harness.Clock);
+    private CreateCategoryHandler Create =>
+        new(_harness.Accounts, _harness.Settings, _harness.UnitOfWork, _harness.Clock);
 
     [Fact]
     public async Task A_category_is_an_expense_account_with_the_category_role()

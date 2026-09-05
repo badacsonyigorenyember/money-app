@@ -12,7 +12,8 @@ namespace Money.Application.Categories;
 /// Sugar over accounts. A category is an Income or Expense account with Role=Category; the UI
 /// never says "account" about one.
 /// </summary>
-public sealed class CreateCategoryHandler(IAccountRepository accounts, IUnitOfWork unitOfWork, IClock clock)
+public sealed class CreateCategoryHandler(
+    IAccountRepository accounts, ISettingsRepository settings, IUnitOfWork unitOfWork, IClock clock)
 {
     public async Task<Result<AccountDto>> HandleAsync(
         CreateCategoryRequest request, CancellationToken cancellationToken = default)
@@ -34,7 +35,7 @@ public sealed class CreateCategoryHandler(IAccountRepository accounts, IUnitOfWo
         }
 
         var currency = parent is null
-            ? Currency.Eur
+            ? Currency.FromCode(await BaseCurrencyResolver.BaseCurrencyCodeAsync(settings, cancellationToken)).Value
             : Currency.FromCode(parent.CurrencyCode).Value;
 
         var siblings = await accounts.ChildrenOfAsync(request.ParentCategoryId, cancellationToken);

@@ -1,6 +1,7 @@
 using Money.Application.Abstractions;
 using Money.Application.Contracts;
 using Money.Application.Mapping;
+using Money.Application.Presentation;
 using Money.Domain.Accounts;
 using Money.Domain.Ledger;
 using Money.Domain.Money;
@@ -59,7 +60,7 @@ public sealed class CompleteFirstRunSetupHandler(
         if (request.OpeningBalance != 0m)
         {
             var amount = MoneyValue.Of(
-                MoneyValue.RoundToMinor(request.OpeningBalance * currency.MinorUnitScale), currency);
+                DisplayAmountMapper.ToStored(request.OpeningBalance, AccountKind.Asset, currency), currency);
 
             var built = LedgerTemplates.OpeningBalance(
                 Guid.CreateVersion7(now), request.OpenedOn,

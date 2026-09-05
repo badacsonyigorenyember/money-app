@@ -7,16 +7,18 @@ using Money.Infrastructure.Persistence;
 
 namespace Money.Infrastructure.Backup;
 
+/// <summary>RetentionCount is only the fallback used before first-run setup exists a settings row.</summary>
 public sealed record BackupOptions(string DataDirectory, int RetentionCount);
 
 /// <summary>
 /// Uses SQLite's Online Backup API, so a backup is consistent even while the app is running.
 /// Copying the file with File.Copy would not be safe in WAL mode.
 /// </summary>
-public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions options, IClock clock)
+public sealed class SqliteBackupService(
+    MoneyDbContext context, BackupOptions options, ISettingsRepository settings, IClock clock)
     : IBackupService
 {
-    public Task<string> CreateBackupAsync(CancellationToken cancellationToken = default)
+    public async Task<string> CreateBackupAsync(CancellationToken cancellationToken = default)
     {
         var backupDirectory = DataDirectory.BackupDirectoryIn(options.DataDirectory);
         Directory.CreateDirectory(backupDirectory);
@@ -48,8 +50,10 @@ public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions op
         // ClearAllPools() would fix the same symptom but reaches every pooled SQLite connection
         // in the process, forcing unrelated reconnects elsewhere - too broad for what is a
         // single connection's lifecycle problem.
-        ApplyRetention(backupDirectory);
-        return Task.FromResult(path);
+        var retentionCount = (await settings.GetAsync(cancellationToken))?.BackupRetentionCount
+            ?? options.RetentionCount;
+        ApplyRetention(backupDirectory, retentionCount);
+        return path;
     }
 
     public Task<IReadOnlyList<BackupInfo>> ListBackupsAsync(CancellationToken cancellationToken = default)
@@ -67,9 +71,9 @@ public sealed class SqliteBackupService(MoneyDbContext context, BackupOptions op
         return Task.FromResult(backups);
     }
 
-    private void ApplyRetention(string backupDirectory)
+    private static void ApplyRetention(string backupDirectory, int retentionCount)
     {
-        var keep = Math.Max(1, options.RetentionCount);
+        var keep = Math.Max(1, retentionCount);
 
         var stale = Directory.EnumerateFiles(backupDirectory, "money-*.db")
             .OrderByDescending(Path.GetFileName, StringComparer.Ordinal)

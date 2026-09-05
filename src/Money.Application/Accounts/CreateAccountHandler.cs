@@ -1,6 +1,7 @@
 using Money.Application.Abstractions;
 using Money.Application.Contracts;
 using Money.Application.Mapping;
+using Money.Application.Presentation;
 using Money.Domain.Accounts;
 using Money.Domain.Ledger;
 using Money.Domain.Money;
@@ -13,6 +14,7 @@ namespace Money.Application.Accounts;
 public sealed class CreateAccountHandler(
     IAccountRepository accounts,
     ITransactionRepository transactions,
+    ISettingsRepository settings,
     IUnitOfWork unitOfWork,
     IClock clock)
 {
@@ -27,7 +29,9 @@ public sealed class CreateAccountHandler(
         var role = AccountMapper.ParseRole(request.Role);
         if (role.IsFailure) return role.Error!;
 
-        var currency = Currency.FromCode(request.CurrencyCode ?? Currency.Eur.Code);
+        var currencyCode = request.CurrencyCode
+            ?? await BaseCurrencyResolver.BaseCurrencyCodeAsync(settings, cancellationToken);
+        var currency = Currency.FromCode(currencyCode);
         if (currency.IsFailure) return currency.Error!;
 
         Account? parent = null;
@@ -59,12 +63,13 @@ public sealed class CreateAccountHandler(
             if (equity.IsFailure) return equity.Error!;
 
             var amount = MoneyValue.Of(
-                MoneyValue.RoundToMinor(opening * currency.Value.MinorUnitScale), currency.Value);
+                DisplayAmountMapper.ToStored(opening, kind.Value, currency.Value), currency.Value);
+
+            var occurredOn = request.OpenedOn
+                ?? await TodayResolver.TodayAsync(settings, clock, cancellationToken);
 
             var transaction = LedgerTemplates.OpeningBalance(
-                Guid.CreateVersion7(now),
-                request.OpenedOn ?? DateOnly.FromDateTime(now.UtcDateTime),
-                account, equity.Value, amount, now);
+                Guid.CreateVersion7(now), occurredOn, account, equity.Value, amount, now);
 
             if (transaction.IsFailure) return transaction.Error!;
 

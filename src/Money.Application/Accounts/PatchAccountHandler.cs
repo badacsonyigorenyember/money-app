@@ -19,10 +19,16 @@ public sealed class PatchAccountHandler(IAccountRepository accounts, IUnitOfWork
 
         var now = clock.UtcNow;
 
+        // Loaded once, before either branch below can mutate account.Path in memory: descendants
+        // are found by a SQL prefix match against the database, which still holds the pre-edit
+        // paths until SaveChangesAsync. Reading them a second time after a rename would prefix-
+        // match against the *new* path while the database still has the old one, matching
+        // nothing - leaving every descendant with a stale path (C2).
+        var descendants = await accounts.DescendantsOfAsync(account.ChildPathPrefix, cancellationToken);
+
         if (request.Name is { } newName && !string.Equals(newName, account.Name, StringComparison.Ordinal))
         {
             var siblings = await accounts.ChildrenOfAsync(account.ParentAccountId, cancellationToken);
-            var descendants = await accounts.DescendantsOfAsync(account.ChildPathPrefix, cancellationToken);
 
             var renamed = AccountTree.Rename(account, newName, siblings, descendants, now);
             if (renamed.IsFailure) return renamed.Error!;
@@ -38,7 +44,6 @@ public sealed class PatchAccountHandler(IAccountRepository accounts, IUnitOfWork
             }
 
             var newSiblings = await accounts.ChildrenOfAsync(newParent?.Id, cancellationToken);
-            var descendants = await accounts.DescendantsOfAsync(account.ChildPathPrefix, cancellationToken);
 
             var moved = AccountTree.Move(account, newParent, newSiblings, descendants, now);
             if (moved.IsFailure) return moved.Error!;

@@ -121,6 +121,115 @@ public sealed class RoundTripAcceptanceTests
     }
 
     [Fact]
+    public async Task A_JPY_ledgers_amounts_render_without_invented_decimals()
+    {
+        // I3: _TransactionRows.cshtml and _AccountRows.cshtml hardcoded ToString("N2"), so a
+        // zero-decimal currency such as JPY (MinorUnitExponent 0) rendered with two decimal
+        // places it never actually had. This also exercises C1: the account and category below
+        // are created with no currency specified, so they only end up JPY because first run set
+        // the ledger's base currency to JPY.
+        using var factory = new ApiFactory();
+        using var client = factory.CreateApiClient();
+
+        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
+        var token = Regex.Match(wizardHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+
+        var wizard = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["BaseCurrencyCode"] = "JPY",
+            ["PeriodAnchor"] = "DayOfMonth",
+            ["PeriodAnchorDay"] = "25",
+            ["TimeZoneId"] = "Europe/Budapest",
+            ["FirstDayOfWeek"] = "Monday",
+            ["FirstAccountName"] = "Wallet",
+            ["FirstAccountRole"] = "Cash",
+            ["OpeningBalance"] = "10000",
+            ["OpenedOn"] = "2026-01-01",
+            ["SeedStarterCategories"] = "false"
+        });
+
+        using var wizardRequest = new HttpRequestMessage(HttpMethod.Post, "/FirstRun") { Content = wizard };
+        wizardRequest.Headers.Add("RequestVerificationToken", token);
+        (await client.SendAsync(wizardRequest, CancellationToken.None))
+            .StatusCode.Should().Be(HttpStatusCode.Redirect);
+
+        var bank = (await client.GetFromJsonAsync<List<AccountDto>>(
+            "/api/v1/accounts?kind=Asset", CancellationToken.None))!.Single(a => a.Name == "Wallet");
+        bank.CurrencyCode.Should().Be("JPY");
+
+        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
+            new { name = "Ramen", kind = "Expense" }, CancellationToken.None))
+            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        category!.CurrencyCode.Should().Be("JPY");
+
+        await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+            new { amount = 1235m, categoryId = category.Id, accountId = bank.Id,
+                  occurredOn = "2026-09-01", description = "Ramen shop" },
+            CancellationToken.None);
+
+        var transactionsHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
+        transactionsHtml.Should().Contain("1,235 JPY");
+        transactionsHtml.Should().NotContain("1,235.00");
+
+        var accountsHtml = await client.GetStringAsync("/accounts", CancellationToken.None);
+        accountsHtml.Should().Contain("8,765 JPY");
+        accountsHtml.Should().NotContain("8,765.00");
+    }
+
+    [Fact]
+    public async Task The_accounts_pages_own_form_also_inherits_the_base_currency_not_a_hardcoded_EUR()
+    {
+        // C1: Accounts.cshtml.cs's OnPostCreateAsync used to pass the literal "EUR" to
+        // CreateAccountRequest regardless of the ledger's base currency. This drives that exact
+        // form handler (not the JSON API) to make sure the page-level call site is fixed too.
+        using var factory = new ApiFactory();
+        using var client = factory.CreateApiClient();
+
+        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
+        var wizardToken = Regex.Match(wizardHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+
+        var wizard = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["BaseCurrencyCode"] = "HUF",
+            ["PeriodAnchor"] = "DayOfMonth",
+            ["PeriodAnchorDay"] = "25",
+            ["TimeZoneId"] = "Europe/Budapest",
+            ["FirstDayOfWeek"] = "Monday",
+            ["FirstAccountName"] = "Current account",
+            ["FirstAccountRole"] = "Bank",
+            ["OpeningBalance"] = "0",
+            ["OpenedOn"] = "2026-01-01",
+            ["SeedStarterCategories"] = "false"
+        });
+
+        using var wizardRequest = new HttpRequestMessage(HttpMethod.Post, "/FirstRun") { Content = wizard };
+        wizardRequest.Headers.Add("RequestVerificationToken", wizardToken);
+        (await client.SendAsync(wizardRequest, CancellationToken.None))
+            .StatusCode.Should().Be(HttpStatusCode.Redirect);
+
+        var accountsHtml = await client.GetStringAsync("/accounts", CancellationToken.None);
+        var accountsToken = Regex.Match(accountsHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+
+        var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["name"] = "Savings",
+            ["role"] = "SavingsPocket"
+        });
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/accounts?handler=Create")
+        {
+            Content = form
+        };
+        createRequest.Headers.Add("RequestVerificationToken", accountsToken);
+
+        var created = await client.SendAsync(createRequest, CancellationToken.None);
+        created.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var accounts = await client.GetFromJsonAsync<List<AccountDto>>(
+            "/api/v1/accounts?kind=Asset", CancellationToken.None);
+        accounts!.Single(a => a.Name == "Savings").CurrencyCode.Should().Be("HUF");
+    }
+
+    [Fact]
     public async Task A_mistaken_entry_can_be_removed_and_the_balance_returns()
     {
         using var factory = new ApiFactory();

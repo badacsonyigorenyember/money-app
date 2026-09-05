@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IBackupService>(provider => new SqliteBackupService(
             provider.GetRequiredService<MoneyDbContext>(),
             new BackupOptions(dataDirectory, RetentionCount: 10),
+            provider.GetRequiredService<ISettingsRepository>(),
             provider.GetRequiredService<IClock>()));
 
         services.AddScoped<JsonExportService>();

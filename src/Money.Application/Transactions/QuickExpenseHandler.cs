@@ -1,6 +1,7 @@
 using Money.Application.Abstractions;
 using Money.Application.Contracts;
 using Money.Application.Mapping;
+using Money.Application.Presentation;
 using Money.Domain.Accounts;
 using Money.Domain.Ledger;
 using Money.Domain.Money;
@@ -32,7 +33,7 @@ public sealed class QuickExpenseHandler(
         if (currency.IsFailure) return currency.Error!;
 
         var amount = MoneyValue.Of(
-            MoneyValue.RoundToMinor(request.Amount * currency.Value.MinorUnitScale), currency.Value);
+            DisplayAmountMapper.ToStored(request.Amount, AccountKind.Expense, currency.Value), currency.Value);
 
         var occurredOn = request.OccurredOn
             ?? await TodayResolver.TodayAsync(settings, clock, cancellationToken);

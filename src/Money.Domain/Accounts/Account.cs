@@ -84,7 +84,7 @@ public sealed class Account
                 return DomainErrors.Account.CurrencyMismatchWithParent();
         }
 
-        var path = parent is null ? RootPathFor(kind) + "/" + slug : parent.ChildPathPrefix + slug;
+        var path = PathFor(parent, kind, slug);
 
         return Result<Account>.Ok(new Account(
             id, validatedName.Value, kind, role, parent?.Id, path, currency.Code, nowUtc));
@@ -141,6 +141,15 @@ public sealed class Account
 
     public static string RootPathFor(AccountKind kind) =>
         "/" + kind.ToString().ToLowerInvariant();
+
+    /// <summary>
+    /// The single place that decides a path from a parent (or its absence) and a slug. A root
+    /// account's path has no trailing slash before the slug is appended, matching
+    /// <see cref="RootPathFor"/>'s contract exactly - <see cref="AccountTree"/>'s Move must agree
+    /// with this, so both go through here rather than each writing the same ternary.
+    /// </summary>
+    public static string PathFor(Account? parent, AccountKind kind, string slug) =>
+        parent is null ? RootPathFor(kind) + "/" + slug : parent.ChildPathPrefix + slug;
 
     /// <summary>Lower-cases, keeps letters and digits, and collapses everything else into single hyphens.</summary>
     public static string Slugify(string name)

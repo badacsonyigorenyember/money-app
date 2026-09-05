@@ -1,5 +1,8 @@
+using Money.Application.Abstractions;
 using Money.Application.Accounts;
+using Money.Application.Categories;
 using Money.Application.Contracts;
+using Money.Domain.Periods;
 
 namespace Money.Application.Tests.Accounts;
 
@@ -10,7 +13,7 @@ public sealed class AccountUseCaseTests : IDisposable
     public void Dispose() => _harness.Dispose();
 
     private CreateAccountHandler Create => new(_harness.Accounts, _harness.Transactions,
-                                               _harness.UnitOfWork, _harness.Clock);
+                                               _harness.Settings, _harness.UnitOfWork, _harness.Clock);
 
     [Fact]
     public async Task Creating_a_bank_account_persists_it_with_a_path()
@@ -22,6 +25,66 @@ public sealed class AccountUseCaseTests : IDisposable
         result.IsSuccess.Should().BeTrue();
         result.Value.Path.Should().Be("/asset/erste-current");
         (await _harness.Accounts.FindAsync(result.Value.Id)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task An_account_created_with_no_currency_inherits_the_ledgers_base_currency()
+    {
+        // C1: after first run, the settings row's BaseCurrencyCode is the single source of truth
+        // for "what currency by default" - not a hardcoded EUR literal. A HUF user must get a
+        // HUF account, or recording against it fails at Transaction.cs (CurrencyMismatchWithAccount)
+        // and the account can never be fixed (nothing can change an account's currency).
+        await _harness.Settings.SaveAsync(new AppSettings(
+            "HUF", PeriodDefinition.Default, BackupRetentionCount: 10, FirstRunCompleted: true));
+        await _harness.UnitOfWork.SaveChangesAsync(CancellationToken.None);
+
+        var result = await Create.HandleAsync(
+            new CreateAccountRequest("Wallet", "Asset", "Cash", null, null, null, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.CurrencyCode.Should().Be("HUF");
+    }
+
+    [Fact]
+    public async Task A_root_category_created_with_no_currency_inherits_the_ledgers_base_currency()
+    {
+        await _harness.Settings.SaveAsync(new AppSettings(
+            "HUF", PeriodDefinition.Default, BackupRetentionCount: 10, FirstRunCompleted: true));
+        await _harness.UnitOfWork.SaveChangesAsync(CancellationToken.None);
+
+        var category = new CreateCategoryHandler(_harness.Accounts, _harness.Settings,
+                                                  _harness.UnitOfWork, _harness.Clock);
+        var result = await category.HandleAsync(
+            new CreateCategoryRequest("Groceries", "Expense", null), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.CurrencyCode.Should().Be("HUF");
+    }
+
+    [Fact]
+    public async Task An_opening_balance_dated_by_default_uses_the_configured_time_zones_today_not_utc()
+    {
+        // I1: CreateAccountHandler used to date the opening balance with
+        // DateOnly.FromDateTime(now.UtcDateTime) - a second, ad hoc "what is today" computation
+        // that bypasses PeriodResolver (CLAUDE.md: nothing else does period/day arithmetic). For
+        // a Budapest user recording just after midnight local time, UTC is still the day before.
+        await _harness.Settings.SaveAsync(new AppSettings(
+            "EUR", PeriodDefinition.Default, BackupRetentionCount: 10, FirstRunCompleted: true));
+        await _harness.UnitOfWork.SaveChangesAsync(CancellationToken.None);
+
+        // 2026-09-01 22:30 UTC is 2026-09-02 00:30 in Europe/Budapest (CEST, UTC+2) -
+        // PeriodDefinition.Default's time zone.
+        _harness.Clock.UtcNow = new DateTimeOffset(2026, 9, 1, 22, 30, 0, TimeSpan.Zero);
+
+        var result = await Create.HandleAsync(
+            new CreateAccountRequest("Wallet", "Asset", "Cash", null, "EUR", 100m, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var opening = (await _harness.Transactions.ListAllAsync())
+            .Single(t => t.Description == "Opening balance");
+        opening.OccurredOn.Should().Be(new DateOnly(2026, 9, 2));
     }
 
     [Fact]
@@ -104,6 +167,41 @@ public sealed class AccountUseCaseTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         (await _harness.Accounts.FindAsync(steam.Id))!.Path.Should().Be("/expense/games/steam");
+    }
+
+    [Fact]
+    public async Task Renaming_and_reparenting_in_one_request_rewrites_every_descendants_path()
+    {
+        // C2: PatchAccountHandler re-read descendants after the rename branch had already
+        // mutated account.Path in memory, so DescendantsOfAsync's SQL prefix match ran against
+        // the still-unsaved (old) paths in the database and came back empty - the Move branch
+        // then rewrote only the node itself, leaving every descendant with a stale path.
+        var fun = (await Create.HandleAsync(
+            new CreateAccountRequest("Fun", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+        var saving = (await Create.HandleAsync(
+            new CreateAccountRequest("Saving", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        var gaming = (await Create.HandleAsync(
+            new CreateAccountRequest("Gaming", "Expense", "Category", fun.Id, "EUR", null, null),
+            CancellationToken.None)).Value;
+        var steam = (await Create.HandleAsync(
+            new CreateAccountRequest("Steam", "Expense", "Category", gaming.Id, "EUR", null, null),
+            CancellationToken.None)).Value;
+        var wallet = (await Create.HandleAsync(
+            new CreateAccountRequest("Wallet", "Expense", "Category", steam.Id, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        var patch = new PatchAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock);
+        var result = await patch.HandleAsync(gaming.Id,
+            new PatchAccountRequest("Games", saving.Id, null, null, null, null, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        (await _harness.Accounts.FindAsync(gaming.Id))!.Path.Should().Be("/expense/saving/games");
+        (await _harness.Accounts.FindAsync(steam.Id))!.Path.Should().Be("/expense/saving/games/steam");
+        (await _harness.Accounts.FindAsync(wallet.Id))!.Path.Should().Be("/expense/saving/games/steam/wallet");
     }
 
     [Fact]

@@ -1,8 +1,10 @@
 using System.Text.Json;
 using CsCheck;
 using Money.Application.Abstractions;
+using Money.Domain.Periods;
 using Money.Infrastructure.Backup;
 using Money.Infrastructure.Export;
+using Money.Infrastructure.Persistence.Repositories;
 using Money.TestSupport;
 
 namespace Money.Application.Tests.Admin;
@@ -31,7 +33,8 @@ public sealed class BackupAndExportTests : IDisposable
         await LedgerSeeder.SeedAsync(context, LedgerGen.Ledgers.Single());
 
         var service = new SqliteBackupService(
-            context, new BackupOptions(_tempDirectory, RetentionCount: 10), FakeClock.At(2026, 9, 1, 14, 30));
+            context, new BackupOptions(_tempDirectory, RetentionCount: 10),
+            new SettingsRepository(context), FakeClock.At(2026, 9, 1, 14, 30));
 
         var path = await service.CreateBackupAsync();
 
@@ -46,7 +49,8 @@ public sealed class BackupAndExportTests : IDisposable
         using var context = _fixture.NewContext();
         var clock = FakeClock.At(2026, 9, 1, 0, 0);
         var service = new SqliteBackupService(
-            context, new BackupOptions(_tempDirectory, RetentionCount: 3), clock);
+            context, new BackupOptions(_tempDirectory, RetentionCount: 3),
+            new SettingsRepository(context), clock);
 
         for (var i = 0; i < 5; i++)
         {
@@ -58,13 +62,40 @@ public sealed class BackupAndExportTests : IDisposable
     }
 
     [Fact]
+    public async Task Retention_follows_the_persisted_setting_not_the_startup_default()
+    {
+        // C3: the Settings screen's "Backups to keep" field is UpdateSettingsHandler-persisted,
+        // but SqliteBackupService.ApplyRetention always used the BackupOptions value fixed at
+        // startup (10) - the control appeared to work and never did anything.
+        using var context = _fixture.NewContext();
+        var clock = FakeClock.At(2026, 9, 1, 0, 0);
+        var settings = new SettingsRepository(context);
+        await settings.SaveAsync(new AppSettings(
+            "EUR", PeriodDefinition.Default, BackupRetentionCount: 2, FirstRunCompleted: true));
+        await context.SaveChangesAsync();
+
+        var service = new SqliteBackupService(
+            context, new BackupOptions(_tempDirectory, RetentionCount: 10), settings, clock);
+
+        for (var i = 0; i < 5; i++)
+        {
+            await service.CreateBackupAsync();
+            clock.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        (await service.ListBackupsAsync()).Should().HaveCount(2,
+            "the persisted setting (2), not the BackupOptions startup default (10), governs retention");
+    }
+
+    [Fact]
     public async Task A_backup_is_a_readable_database_containing_the_same_rows()
     {
         using var context = _fixture.NewContext();
         var ledger = await LedgerSeeder.SeedAsync(context, LedgerGen.Ledgers.Single());
 
         var service = new SqliteBackupService(
-            context, new BackupOptions(_tempDirectory, 10), FakeClock.At(2026, 9, 1, 14, 30));
+            context, new BackupOptions(_tempDirectory, 10),
+            new SettingsRepository(context), FakeClock.At(2026, 9, 1, 14, 30));
         var path = await service.CreateBackupAsync();
 
         using var restored = new Microsoft.Data.Sqlite.SqliteConnection($"DataSource={path}");

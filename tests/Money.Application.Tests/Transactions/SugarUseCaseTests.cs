@@ -15,8 +15,9 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
     public async Task InitializeAsync()
     {
         var accounts = new CreateAccountHandler(_harness.Accounts, _harness.Transactions,
-                                                _harness.UnitOfWork, _harness.Clock);
-        var categories = new CreateCategoryHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock);
+                                                _harness.Settings, _harness.UnitOfWork, _harness.Clock);
+        var categories = new CreateCategoryHandler(_harness.Accounts, _harness.Settings,
+                                                    _harness.UnitOfWork, _harness.Clock);
 
         _bank = (await accounts.HandleAsync(new CreateAccountRequest(
             "Current", "Asset", "Bank", null, "EUR", 1000m, new DateOnly(2026, 1, 1)),

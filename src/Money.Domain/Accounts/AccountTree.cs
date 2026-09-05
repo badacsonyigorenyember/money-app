@@ -72,9 +72,7 @@ public static class AccountTree
             return DomainErrors.Account.DuplicateSiblingName(account.Name);
 
         var oldPath = account.Path;
-        var newPath = newParent is null
-            ? Account.RootPathFor(account.Kind) + "/" + slug
-            : newParent.ChildPathPrefix + slug;
+        var newPath = Account.PathFor(newParent, account.Kind, slug);
 
         account.ApplyMove(newParent?.Id, newPath, nowUtc);
         RewriteDescendants(descendants, oldPath, newPath, nowUtc);

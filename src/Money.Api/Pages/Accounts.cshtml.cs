@@ -25,7 +25,7 @@ public sealed class AccountsModel(
         [FromForm] DateOnly? openedOn, CancellationToken cancellationToken)
     {
         var result = await create.HandleAsync(
-            new CreateAccountRequest(name, "Asset", role, null, "EUR", openingBalance, openedOn),
+            new CreateAccountRequest(name, "Asset", role, null, null, openingBalance, openedOn),
             cancellationToken);
 
         if (result.IsFailure) ErrorMessage = result.Error!.Message;
