@@ -84,9 +84,22 @@ public sealed class RoundTripAcceptanceTests
             CancellationToken.None))
             .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
 
-        await client.PostAsJsonAsync("/api/v1/transactions/transfer",
+        var bankBeforeTransfer = balance.Balance;
+
+        var transfer = await client.PostAsJsonAsync("/api/v1/transactions/transfer",
             new { amount = 300m, fromAccountId = bank.Id, toAccountId = savings!.Id,
                   occurredOn = "2026-09-02" }, CancellationToken.None);
+        transfer.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var bankAfterTransfer = await client.GetFromJsonAsync<AccountBalanceDto>(
+            $"/api/v1/accounts/{bank.Id}/balance", CancellationToken.None);
+        bankAfterTransfer!.Balance.Should().Be(bankBeforeTransfer - 300m,
+            "the transfer must actually debit the source account");
+
+        var savingsAfterTransfer = await client.GetFromJsonAsync<AccountBalanceDto>(
+            $"/api/v1/accounts/{savings.Id}/balance", CancellationToken.None);
+        savingsAfterTransfer!.Balance.Should().Be(300m,
+            "the transfer must actually credit the destination account");
 
         var groceriesBalance = await client.GetFromJsonAsync<AccountBalanceDto>(
             $"/api/v1/accounts/{groceries.Id}/balance", CancellationToken.None);
