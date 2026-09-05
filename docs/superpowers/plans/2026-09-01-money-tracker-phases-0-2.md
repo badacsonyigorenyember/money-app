@@ -10531,7 +10531,7 @@ git commit -m "feat: add admin endpoints for backup, export and integrity check"
 
 **Vocabulary rule (spec section 14):** the words *posting*, *debit*, *credit* and *double-entry* must not appear in any `.cshtml`. Lines are **entries**. Expense accounts are **categories**. A test asserts this.
 
-- [ ] **Step 1: Write the failing page tests**
+- [x] **Step 1: Write the failing page tests**
 
 ```csharp
 using System.Net;
@@ -10617,12 +10617,12 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests --filter TransactionsPageTests`
 Expected: FAIL — the pages do not exist.
 
-- [ ] **Step 3: Vendor HTMX**
+- [x] **Step 3: Vendor HTMX**
 
 Download HTMX 2.x and save it as `src/Money.Api/wwwroot/lib/htmx.min.js`. Commit the file — spec section 4: no Node, no build step, and a vendored asset works offline by definition.
 
@@ -10632,7 +10632,7 @@ curl -L https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js -o src/Money.Api/wwwro
 
 Record the version in a one-line comment at the top of the file so a later upgrade is a deliberate act.
 
-- [ ] **Step 4: Write the Razor plumbing**
+- [x] **Step 4: Write the Razor plumbing**
 
 `Pages/_ViewImports.cshtml`:
 
@@ -10775,7 +10775,7 @@ button.primary { background: var(--accent); color: #10131a; border-color: var(--
 }
 ```
 
-- [ ] **Step 5: Write `Index.cshtml`**
+- [x] **Step 5: Write `Index.cshtml`**
 
 Phase 7 replaces this with the real dashboard. For now it is a signpost that also handles the first-run redirect.
 
@@ -10816,7 +10816,7 @@ public sealed class IndexModel(GetSettingsHandler settings) : PageModel
 </ul>
 ```
 
-- [ ] **Step 6: Write the transactions page**
+- [x] **Step 6: Write the transactions page**
 
 `Pages/Transactions.cshtml.cs`:
 
@@ -11009,14 +11009,14 @@ public sealed class TransactionsModel(
 
 Razor Pages handlers require an antiforgery token for POSTs. Either add `@Html.AntiForgeryToken()` inside the forms and configure HTMX to send it, or register `services.AddAntiforgery()` and add `hx-headers='{"RequestVerificationToken": "..."}'`. Simplest robust approach for this app: put `<input name="__RequestVerificationToken" type="hidden" value="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />` inside each form and inject `IAntiforgery Antiforgery` into the layout. Do this now, not later — a 400 from a missing token is a confusing first bug to hit.
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests --filter TransactionsPageTests`
 Expected: PASS, 4 tests.
 
 `No_page_uses_accounting_vocabulary` covers only `/transactions` at this point, because that is the only page written. Task 32 widens it to every page. `/` is deliberately excluded here too: on a fresh database it redirects to the first-run wizard, so fetching it would assert against a redirect body.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
