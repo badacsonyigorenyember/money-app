@@ -11407,7 +11407,7 @@ git commit -m "feat: add categories tree editor and accounts screens"
 **Interfaces:**
 - Produces: `FirstRunModel : PageModel` with `OnGetAsync`, `OnPostAsync(FirstRunRequest)`; `SettingsModel : PageModel` with `OnGetAsync`, `OnPostSaveAsync(UpdateSettingsRequest)`, `OnPostBackupAsync()`, `OnPostIntegrityCheckAsync()`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Net;
@@ -11492,12 +11492,12 @@ public sealed class FirstRunPageTests
 
 Each test constructs its own `ApiFactory` so that the first-run state is genuinely fresh.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests --filter FirstRunPageTests`
 Expected: FAIL — the pages do not exist.
 
-- [ ] **Step 3: Implement the first-run wizard**
+- [x] **Step 3: Implement the first-run wizard**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -11612,7 +11612,7 @@ public sealed class FirstRunModel(
 </form>
 ```
 
-- [ ] **Step 4: Implement the settings screen**
+- [x] **Step 4: Implement the settings screen**
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
@@ -11736,16 +11736,16 @@ public sealed class SettingsModel(
 }
 ```
 
-- [ ] **Step 5: Restore the full vocabulary test**
+- [x] **Step 5: Restore the full vocabulary test**
 
 Put `/categories`, `/accounts` and `/settings` back into `No_page_uses_accounting_vocabulary`'s path list, and run it against a factory that has completed first run (otherwise `/` redirects).
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
