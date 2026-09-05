@@ -1,0 +1,9 @@
+{
+  "name": "Money",
+  "short_name": "Money",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12141a",
+  "theme_color": "#12141a",
+  "icons": []
+}

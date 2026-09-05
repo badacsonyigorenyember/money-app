@@ -1,0 +1,50 @@
+@model Money.Api.Pages.TransactionsModel
+
+<div id="rows">
+    @if (Model.ErrorMessage is not null)
+    {
+        <p class="error">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.Page.Items.Count == 0)
+    {
+        <p class="muted">Nothing here yet. Add your first expense above.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th class="hide-narrow">Category</th>
+                    <th class="hide-narrow">Account</th>
+                    <th class="amount">Amount</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Page.Items)
+            {
+                <tr class="@(item.IsVoided ? "voided" : null)">
+                    <td>@item.OccurredOn.ToString("yyyy-MM-dd")</td>
+                    <td>@item.Description</td>
+                    <td class="hide-narrow">@item.CategoryName</td>
+                    <td class="hide-narrow">@item.AccountName</td>
+                    <td class="amount">@item.Amount.ToString("N2") @item.CurrencyCode</td>
+                    <td>
+                        @if (!item.IsVoided)
+                        {
+                            <button hx-post="@($"/transactions?handler=Void&id={item.Id}&reason=Removed+by+the+user")"
+                                    hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
+                                    hx-confirm="Remove this transaction? It stays in the history, marked as removed.">
+                                Remove
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>

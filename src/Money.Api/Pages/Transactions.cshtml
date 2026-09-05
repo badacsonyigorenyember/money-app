@@ -1,0 +1,44 @@
+@page
+@model TransactionsModel
+@{ ViewData["Title"] = "Transactions"; }
+
+<h1>Transactions</h1>
+
+<form class="quick-add" method="post" asp-page-handler="QuickAdd"
+      hx-post="/transactions?handler=QuickAdd" hx-target="#rows" hx-swap="outerHTML"
+      hx-disabled-elt="find button"
+      hx-on::after-request="if(event.detail.successful) this.reset()">
+    <input type="date" name="occurredOn" value="@Model.Today.ToString("yyyy-MM-dd")" required />
+    <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount"
+           autofocus required />
+    <select name="categoryId" required>
+        <option value="">Category…</option>
+        @foreach (var category in Model.Categories)
+        {
+            <option value="@category.Id">@category.Name</option>
+            @foreach (var child in category.Children)
+            {
+                <option value="@child.Id">@category.Name → @child.Name</option>
+            }
+        }
+    </select>
+    <select name="accountId" required>
+        @foreach (var account in Model.Accounts)
+        {
+            <option value="@account.Id">@account.Name</option>
+        }
+    </select>
+    <input type="text" name="description" placeholder="Description (optional)" />
+    <button class="primary" type="submit">Add</button>
+</form>
+
+<form method="get" class="filters">
+    <input type="search" name="q" value="@Model.Q" placeholder="Search…" />
+    <input type="date" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+    <input type="date" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+    <label><input type="checkbox" name="includeVoided" value="true"
+                  checked="@Model.IncludeVoided" /> Show removed</label>
+    <button type="submit">Filter</button>
+</form>
+
+<partial name="Shared/_TransactionRows" model="Model" />

@@ -1,0 +1,33 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] — Money</title>
+    <link rel="stylesheet" href="~/app.css" />
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <script src="~/lib/htmx.min.js" defer></script>
+</head>
+<body hx-headers='{"RequestVerificationToken": "@Antiforgery.GetAndStoreTokens(Context).RequestToken"}'>
+    <header class="topbar">
+        <a class="brand" href="/">Money</a>
+        <nav>
+            <a href="/transactions">Transactions</a>
+            <a href="/categories">Categories</a>
+            <a href="/accounts">Accounts</a>
+            <a href="/settings">Settings</a>
+        </nav>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function () { });
+        }
+    </script>
+</body>
+</html>
