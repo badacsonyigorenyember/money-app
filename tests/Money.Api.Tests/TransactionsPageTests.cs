@@ -29,9 +29,10 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     {
         using var client = _factory.CreateApiClient();
 
-        // Task 32 widens this list to "/categories", "/accounts" and "/settings" once those
-        // pages exist. Every page ever added goes in here.
-        foreach (var path in new[] { "/transactions" })
+        // Every page that exists goes in here: transactions, categories, accounts, settings and
+        // the first-run wizard. This is the automated guard for the rule that double-entry
+        // vocabulary never reaches a view - widen it again the moment a new page is added.
+        foreach (var path in new[] { "/transactions", "/categories", "/accounts", "/settings", "/FirstRun" })
         {
             var html = await client.GetStringAsync(path, CancellationToken.None);
 

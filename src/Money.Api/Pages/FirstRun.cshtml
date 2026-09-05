@@ -1,0 +1,60 @@
+@page
+@model FirstRunModel
+@{ ViewData["Title"] = "Welcome"; }
+
+<h1>Welcome</h1>
+<p class="muted">
+    Three quick choices and you can start recording. Everything is stored on this computer only:
+    your data is kept in your user folder, never beside the program and never online.
+</p>
+
+@if (Model.ErrorMessage is not null)
+{
+    <p class="error">@Model.ErrorMessage</p>
+}
+
+<form method="post">
+    <fieldset>
+        <legend>Currency</legend>
+        <select asp-for="BaseCurrencyCode">
+            <option value="EUR">EUR</option>
+            <option value="HUF">HUF</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+        </select>
+    </fieldset>
+
+    <fieldset>
+        <legend>When does your month start?</legend>
+        <label><input type="radio" asp-for="PeriodAnchor" value="CalendarMonth" checked />
+            On the 1st</label>
+        <label><input type="radio" asp-for="PeriodAnchor" value="DayOfMonth" />
+            On a payday: day
+            <input type="number" asp-for="PeriodAnchorDay" min="1" max="28" /></label>
+        <p class="muted">Days above 28 are not offered: not every month has them.</p>
+        <label>Time zone <input type="text" asp-for="TimeZoneId" /></label>
+        <label>Week starts on
+            <select asp-for="FirstDayOfWeek">
+                <option value="Monday">Monday</option>
+                <option value="Sunday">Sunday</option>
+            </select>
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>Your first account</legend>
+        <input type="text" asp-for="FirstAccountName" required />
+        <select asp-for="FirstAccountRole">
+            <option value="Bank">Bank</option>
+            <option value="Cash">Cash</option>
+        </select>
+        <label>Starting balance <input type="number" asp-for="OpeningBalance" step="0.01" /></label>
+        <label>As of <input type="date" asp-for="OpenedOn" required /></label>
+    </fieldset>
+
+    <label><input type="checkbox" asp-for="SeedStarterCategories" />
+        Create starter categories: Housing, Groceries, Eating out, Alcohol, Gaming, Transport,
+        Health, Subscriptions, Other. You can rename or remove any of them.</label>
+
+    <button class="primary" type="submit">Start</button>
+</form>

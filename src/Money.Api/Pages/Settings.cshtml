@@ -1,0 +1,56 @@
+@page
+@model SettingsModel
+@{ ViewData["Title"] = "Settings"; }
+
+<h1>Settings</h1>
+
+@if (Model.Message is not null) { <p class="ok">@Model.Message</p> }
+@if (Model.ErrorMessage is not null) { <p class="error">@Model.ErrorMessage</p> }
+
+<form method="post" asp-page-handler="Save">
+    <label>Currency <input asp-for="Form.BaseCurrencyCode" maxlength="3" /></label>
+    <label>Month starts
+        <select asp-for="Form.PeriodAnchor">
+            <option value="CalendarMonth">On the 1st</option>
+            <option value="DayOfMonth">On a payday</option>
+        </select>
+    </label>
+    <label>Payday <input type="number" asp-for="Form.PeriodAnchorDay" min="1" max="28" /></label>
+    <label>Time zone <input asp-for="Form.TimeZoneId" /></label>
+    <label>Week starts on <input asp-for="Form.FirstDayOfWeek" /></label>
+    <label>Backups to keep <input type="number" asp-for="Form.BackupRetentionCount" min="1" max="100" /></label>
+    <button class="primary" type="submit">Save</button>
+</form>
+
+<h2>Backup</h2>
+<p class="muted">Backups are written next to your data, in your user folder.</p>
+<form method="post" asp-page-handler="Backup"><button type="submit">Back up now</button></form>
+
+<h2>Export</h2>
+<p class="muted">
+    Amounts are exported in whole cents so a spreadsheet cannot round them.
+</p>
+<a href="/api/v1/admin/export?format=json">Download JSON</a>
+<a href="/api/v1/admin/export?format=csv">Download CSV</a>
+
+<h2>Integrity</h2>
+<form method="post" asp-page-handler="IntegrityCheck">
+    <button type="submit">Check my data</button>
+</form>
+
+@if (Model.Report is not null)
+{
+    @if (Model.Report.IsHealthy)
+    {
+        <p class="ok">Everything checks out.</p>
+    }
+    else
+    {
+        <ul class="error">
+            @foreach (var finding in Model.Report.Findings)
+            {
+                <li>@finding</li>
+            }
+        </ul>
+    }
+}
