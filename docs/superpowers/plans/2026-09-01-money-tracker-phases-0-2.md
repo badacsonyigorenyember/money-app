@@ -9892,7 +9892,7 @@ git commit -m "feat: add account, category and settings endpoints"
 
 The filter is applied to the three POSTs that create money movements. Semantics: if `Idempotency-Key` is absent the request proceeds normally; if present and already recorded, the stored response body is replayed with `200 OK` and an `Idempotency-Replayed: true` header; otherwise the request runs and a successful response body is recorded under the key.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Net;
@@ -10194,12 +10194,12 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests --filter "TransactionEndpointTests|IdempotencyTests"`
 Expected: FAIL — the endpoints are not mapped.
 
-- [ ] **Step 3: Implement `IdempotencyFilter`**
+- [x] **Step 3: Implement `IdempotencyFilter`**
 
 ```csharp
 using System.Text.Json;
@@ -10256,7 +10256,7 @@ public sealed class IdempotencyFilter(IIdempotencyStore store, IUnitOfWork unitO
 
 This filter is the only caller that has a clock, which is why `RecordAsync` takes the timestamp as a parameter (Task 17) rather than reading it.
 
-- [ ] **Step 4: Implement `TransactionEndpoints`**
+- [x] **Step 4: Implement `TransactionEndpoints`**
 
 ```csharp
 using Money.Api.Infrastructure;
@@ -10347,12 +10347,12 @@ public static class TransactionEndpoints
 
 Register the filter: `services.AddScoped<IdempotencyFilter>();` in `DependencyInjection`.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests --filter "TransactionEndpointTests|IdempotencyTests"`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
