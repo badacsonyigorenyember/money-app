@@ -186,4 +186,40 @@ public sealed class TransactionUseCaseTests : IAsyncLifetime, IDisposable
         row.AccountName.Should().Be("Current");
         row.Amount.Should().Be(20.00m);
     }
+
+    [Fact]
+    public async Task The_list_shows_an_income_transaction_as_a_positive_amount()
+    {
+        // Neither line is Kind=Expense, so the list's "headline" picker has no expense line to
+        // fall back on. It must still land on the asset leg (Bank, +3000), not the income
+        // category's raw, not-yet-display-oriented credit (-300000 minor).
+        await Create.HandleAsync(new CreateTransactionRequest(
+            new DateOnly(2026, 9, 1), "September salary", null,
+            [
+                new TransactionLineRequest(_bank.Id, 3000m, null),
+                new TransactionLineRequest(_salary.Id, 3000m, null)
+            ]), CancellationToken.None);
+
+        var page = await new ListTransactionsHandler(_harness.Queries).HandleAsync(
+            new TransactionQuery(null, null, null, null, null, false, null, 20), CancellationToken.None);
+
+        var row = page.Items.Single(i => i.Description == "September salary");
+        row.Amount.Should().Be(3000m, "income must never render as a negative number in the list");
+        row.AccountName.Should().Be("Current");
+    }
+
+    [Fact]
+    public async Task The_list_shows_an_opening_balance_as_a_positive_amount_on_the_asset_account()
+    {
+        // _bank was created in InitializeAsync with an opening balance of 1000 EUR, which books
+        // Bank (Asset, +100000) against an "Opening balance" Equity account (-100000). The row's
+        // Amount must reflect the account it names growing, not an arbitrary tied-amount leg.
+        var page = await new ListTransactionsHandler(_harness.Queries).HandleAsync(
+            new TransactionQuery(null, null, null, null, "Opening", true, null, 20), CancellationToken.None);
+
+        var row = page.Items.Single();
+        row.AccountName.Should().Be("Current");
+        row.Amount.Should().Be(1000.00m,
+            "a deposit into an asset account must show as positive, matching the sign convention");
+    }
 }

@@ -39,12 +39,15 @@ public static class TransactionMapper
         {
             var currency = Currency.FromCode(row.CurrencyCode).Value;
 
-            // The headline amount is the expense line when there is one, which is already a debit,
-            // so it needs no orientation flip - the query picked a Kind=Expense row.
+            // DisplayAmountMapper is the only place a sign is flipped for a human. It is a no-op
+            // for the common case (an Expense or Asset headline is already stored debit-positive),
+            // and it is what keeps an Income, Liability or Equity headline - stored credit-negative
+            // - from reading as a negative number here.
+            var amount = DisplayAmountMapper.ToDisplay(row.SignedAmountMinor, row.HeadlineKind, currency);
+
             return new TransactionListItemDto(
                 row.Id, row.OccurredOn, row.Description, row.Payee, row.IsVoided,
-                row.SignedAmountMinor / currency.MinorUnitScale, row.CurrencyCode,
-                row.CategoryName, row.AccountName);
+                amount, row.CurrencyCode, row.CategoryName, row.AccountName);
         }).ToArray();
 
         return new TransactionPageDto(items, page.NextCursor);

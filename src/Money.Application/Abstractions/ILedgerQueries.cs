@@ -1,3 +1,5 @@
+using Money.Domain.Accounts;
+
 namespace Money.Application.Abstractions;
 
 public sealed record AccountBalanceRow(Guid AccountId, long BalanceMinor);
@@ -12,6 +14,13 @@ public sealed record TransactionQuery(
     string? Cursor,
     int Limit);
 
+/// <summary>
+/// One row's "headline" leg. <paramref name="HeadlineKind"/> is the account kind of whichever
+/// posting <paramref name="SignedAmountMinor"/> was taken from - the presentation layer needs it
+/// to apply DisplayAmountMapper's sign convention; the raw stored minor units alone are not
+/// display-safe for every account kind (Income, Liability and Equity legs are stored negative for
+/// an increase and must be negated to read as positive to a user).
+/// </summary>
 public sealed record TransactionRow(
     Guid Id,
     DateOnly OccurredOn,
@@ -20,6 +29,7 @@ public sealed record TransactionRow(
     bool IsVoided,
     string CurrencyCode,
     long SignedAmountMinor,
+    AccountKind HeadlineKind,
     string? CategoryName,
     string? AccountName);
 

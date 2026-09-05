@@ -124,11 +124,20 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
         {
             var expenseLine = t.Lines.FirstOrDefault(l => l.Kind == Domain.Accounts.AccountKind.Expense);
             var assetLine = t.Lines.FirstOrDefault(l => l.Kind == Domain.Accounts.AccountKind.Asset);
-            var headline = expenseLine ?? t.Lines.OrderByDescending(l => Math.Abs(l.AmountMinor)).First();
+
+            // The headline leg must be the same one named in the Account column, or the two
+            // columns can describe different sides of the transaction. An expense line wins when
+            // there is one (that is what makes a spend read as a plain positive number); otherwise
+            // the asset leg does, since every template the user can reach (expense, income,
+            // transfer, opening balance) always touches exactly one Kind=Asset account. Only a
+            // transaction with neither - which no current template produces - falls back to an
+            // arbitrary, but at least deterministic, largest-magnitude line.
+            var headline = expenseLine ?? assetLine
+                ?? t.Lines.OrderByDescending(l => Math.Abs(l.AmountMinor)).ThenBy(l => l.Name).First();
 
             return new TransactionRow(
                 t.Id, t.OccurredOn, t.Description, t.Payee, t.IsVoided,
-                headline.CurrencyCode, headline.AmountMinor,
+                headline.CurrencyCode, headline.AmountMinor, headline.Kind,
                 expenseLine?.Name, assetLine?.Name);
         }).ToList();
 

@@ -8,7 +8,7 @@ public static class DomainErrors
             new("currency.invalid_code", $"'{code}' is not a three-letter ISO-4217 currency code.");
 
         public static DomainError Unknown(string code) =>
-            new("currency.unknown", $"Currency '{code}' is not in the known-currency table.");
+            new("currency.unknown", $"'{code}' is not a currency this app recognises.");
 
         public static DomainError InvalidMinorUnitExponent(int exponent) =>
             new("currency.invalid_minor_unit_exponent",
@@ -81,7 +81,7 @@ public static class DomainErrors
 
         public static DomainError NameUnusable(string name) =>
             new("account.name_unusable",
-                $"'{name}' contains no letters or digits, so it cannot form a path segment.");
+                $"'{name}' needs at least one letter or digit in it.");
 
         public static DomainError HasActiveDescendants(string name, bool isCategory) =>
             new("account.archive_blocked_by_active_descendants",
@@ -121,13 +121,13 @@ public static class DomainErrors
                 $"'{accountName}' appears more than once; combine the entries instead.");
 
         public static DomainError AlreadyVoided() =>
-            new("transaction.already_voided", "This transaction has already been voided.");
+            new("transaction.already_voided", "This transaction has already been removed.");
 
         public static DomainError CannotEditVoided() =>
-            new("transaction.cannot_edit_voided", "A voided transaction cannot be edited.");
+            new("transaction.cannot_edit_voided", "A removed transaction cannot be edited.");
 
         public static DomainError VoidReasonRequired() =>
-            new("transaction.void_reason_required", "A reason is required when voiding.");
+            new("transaction.void_reason_required", "A reason is required to remove this.");
 
         public static DomainError NotFound(Guid id) =>
             new("transaction.not_found", $"Transaction {id} does not exist.");
