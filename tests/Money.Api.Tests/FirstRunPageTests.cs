@@ -33,6 +33,24 @@ public sealed class FirstRunPageTests
     }
 
     [Fact]
+    public async Task The_as_of_date_defaults_to_today_in_the_configured_time_zone()
+    {
+        using var factory = new ApiFactory();
+        using var client = factory.CreateApiClient();
+
+        var html = await client.GetStringAsync("/FirstRun", CancellationToken.None);
+
+        // ApiFactory.Clock is fixed at 2026-09-01 09:00 UTC, which is also 2026-09-01 in the
+        // wizard's default Europe/Budapest zone - the same fixed date other tests in this suite
+        // (e.g. TransactionsPageTests) assert against.
+        var openedOnValue = Regex.Match(html, "id=\"OpenedOn\"[^>]*value=\"([^\"]*)\"").Groups[1].Value;
+
+        openedOnValue.Should().Be("2026-09-01",
+            "the wizard is the first screen a user ever sees; a 0001-01-01 default would silently " +
+            "misdate their opening balance unless they notice and correct it");
+    }
+
+    [Fact]
     public async Task Completing_the_wizard_seeds_the_app_and_stops_redirecting()
     {
         using var factory = new ApiFactory();

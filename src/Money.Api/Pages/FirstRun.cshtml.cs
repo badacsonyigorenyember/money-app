@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Money.Application.Abstractions;
 using Money.Application.Contracts;
 using Money.Application.FirstRun;
 using Money.Application.Settings;
+using Money.Domain.Time;
 
 namespace Money.Api.Pages;
 
 public sealed class FirstRunModel(
-    CompleteFirstRunSetupHandler complete, GetSettingsHandler settings) : PageModel
+    CompleteFirstRunSetupHandler complete, GetSettingsHandler settings,
+    ISettingsRepository settingsRepository, IClock clock) : PageModel
 {
     [BindProperty] public string BaseCurrencyCode { get; set; } = "EUR";
     [BindProperty] public string PeriodAnchor { get; set; } = "CalendarMonth";
@@ -22,10 +25,16 @@ public sealed class FirstRunModel(
 
     public string? ErrorMessage { get; private set; }
 
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken) =>
-        (await settings.HandleAsync(cancellationToken)).FirstRunCompleted
-            ? RedirectToPage("/Index")
-            : Page();
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
+    {
+        if ((await settings.HandleAsync(cancellationToken)).FirstRunCompleted)
+            return RedirectToPage("/Index");
+
+        // The "As of" input must default to today, not DateOnly's 0001-01-01 - this is the first
+        // screen a user ever sees, and an unnoticed default would misdate their opening balance.
+        OpenedOn = await TodayResolver.TodayAsync(settingsRepository, clock, cancellationToken);
+        return Page();
+    }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
