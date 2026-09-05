@@ -10370,7 +10370,7 @@ git commit -m "feat: add transaction endpoints with Idempotency-Key replay"
 **Interfaces:**
 - Produces: `MapAdminEndpoints()` covering `POST /admin/backup`, `GET /admin/export?format=json|csv`, `POST /admin/integrity-check`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Net;
@@ -10453,12 +10453,12 @@ public sealed class AdminEndpointTests : IClassFixture<ApiFactory>
 
 The backup endpoint is not exercised here: it writes to the real data directory. Task 25 already tests `SqliteBackupService` directly against a temp folder; testing the HTTP wrapper again would only test ASP.NET Core.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/Money.Api.Tests --filter AdminEndpointTests`
 Expected: FAIL — the endpoints are not mapped.
 
-- [ ] **Step 3: Implement `AdminEndpoints`**
+- [x] **Step 3: Implement `AdminEndpoints`**
 
 ```csharp
 using System.Text;
@@ -10500,14 +10500,14 @@ public static class AdminEndpoints
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `dotnet test tests/Money.Api.Tests --filter AdminEndpointTests`
 Expected: PASS, 5 tests.
 
 If `The_export_never_contains_the_word_posting` fails, the JSON export is still naming the collection `postings`. Rename it to `entries` in `JsonExportService` — the export is a document the user opens.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Money.Api tests/Money.Api.Tests
