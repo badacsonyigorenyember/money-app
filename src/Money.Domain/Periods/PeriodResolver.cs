@@ -9,7 +9,6 @@ namespace Money.Domain.Periods;
 public sealed class PeriodResolver
 {
     private readonly PeriodDefinition _definition;
-    private readonly int _anchorDay;
     private readonly TimeZoneInfo _timeZone;
 
     public PeriodResolver(PeriodDefinition definition)
@@ -17,7 +16,6 @@ public sealed class PeriodResolver
         ArgumentNullException.ThrowIfNull(definition);
 
         _definition = definition;
-        _anchorDay = definition.Anchor.AnchorDay;
 
         if (!PeriodDefinition.TryFindTimeZone(definition.TimeZoneId, out var timeZone))
         {
@@ -62,9 +60,27 @@ public sealed class PeriodResolver
 
     // ---- monthly, quarterly, yearly all sit on the anchored month ------------------
 
+    /// <summary>
+    /// The day on which the anchored month that opens in calendar month (year, month) begins.
+    /// Every monthly, quarterly and yearly boundary is read from here, so an anchor whose boundary
+    /// moves from month to month - the first Monday - tiles exactly as a fixed day number does:
+    /// all I9 needs is that this is strictly increasing in (year, month), and it is.
+    /// </summary>
+    private DateOnly AnchorStart(int year, int month) => _definition.Anchor switch
+    {
+        PeriodAnchor.FirstMondayAnchor => FirstMondayOf(year, month),
+        var anchor => new DateOnly(year, month, anchor.AnchorDay)
+    };
+
+    private static DateOnly FirstMondayOf(int year, int month)
+    {
+        var first = new DateOnly(year, month, 1);
+        return first.AddDays((7 + (int)DayOfWeek.Monday - (int)first.DayOfWeek) % 7);
+    }
+
     /// <summary>The (year, month) whose anchored period contains <paramref name="date"/>.</summary>
     private (int Year, int Month) AnchoredMonth(DateOnly date) =>
-        date.Day >= _anchorDay
+        date >= AnchorStart(date.Year, date.Month)
             ? (date.Year, date.Month)
             : date.Month == 1 ? (date.Year - 1, 12) : (date.Year, date.Month - 1);
 
@@ -76,9 +92,9 @@ public sealed class PeriodResolver
 
     private DateRange MonthlyRange(PeriodKey key)
     {
-        var start = new DateOnly(key.Year, key.Index, _anchorDay);
+        var start = AnchorStart(key.Year, key.Index);
         var (nextYear, nextMonth) = key.Index == 12 ? (key.Year + 1, 1) : (key.Year, key.Index + 1);
-        return DateRange.FromOrdered(start, new DateOnly(nextYear, nextMonth, _anchorDay));
+        return DateRange.FromOrdered(start, AnchorStart(nextYear, nextMonth));
     }
 
     private PeriodKey ResolveQuarterly(DateOnly date)
@@ -90,19 +106,18 @@ public sealed class PeriodResolver
     private DateRange QuarterlyRange(PeriodKey key)
     {
         var startMonth = ((key.Index - 1) * 3) + 1;
-        var start = new DateOnly(key.Year, startMonth, _anchorDay);
+        var start = AnchorStart(key.Year, startMonth);
         var endMonth = startMonth + 3;
         var end = endMonth > 12
-            ? new DateOnly(key.Year + 1, endMonth - 12, _anchorDay)
-            : new DateOnly(key.Year, endMonth, _anchorDay);
+            ? AnchorStart(key.Year + 1, endMonth - 12)
+            : AnchorStart(key.Year, endMonth);
         return DateRange.FromOrdered(start, end);
     }
 
     private PeriodKey ResolveYearly(DateOnly date) => Key(PeriodType.Yearly, AnchoredMonth(date).Year, 1);
 
     private DateRange YearlyRange(PeriodKey key) =>
-        DateRange.FromOrdered(new DateOnly(key.Year, 1, _anchorDay),
-                              new DateOnly(key.Year + 1, 1, _anchorDay));
+        DateRange.FromOrdered(AnchorStart(key.Year, 1), AnchorStart(key.Year + 1, 1));
 
     // ---- weekly -------------------------------------------------------------------
 

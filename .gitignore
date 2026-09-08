@@ -32,3 +32,6 @@ appsettings.Development.json
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Published desktop app
+dist/

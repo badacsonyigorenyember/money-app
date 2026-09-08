@@ -6,9 +6,10 @@ namespace Money.Infrastructure.Persistence.Repositories;
 
 public sealed class SettingsRepository(MoneyDbContext context) : ISettingsRepository
 {
-    // The two persisted anchor names. Task 24's SettingsMapper exposes the same two strings to
-    // the API, and SettingsUseCaseTests round-trips them; if these ever disagree, that test fails.
+    // The persisted anchor names. Task 24's SettingsMapper exposes the same strings to the API,
+    // and SettingsUseCaseTests round-trips them; if these ever disagree, that test fails.
     internal const string CalendarMonthAnchorName = "CalendarMonth";
+    internal const string FirstMondayAnchorName = "FirstMonday";
     internal const string DayOfMonthAnchorName = "DayOfMonth";
 
     public async Task<AppSettings?> GetAsync(CancellationToken cancellationToken = default)
@@ -16,9 +17,12 @@ public sealed class SettingsRepository(MoneyDbContext context) : ISettingsReposi
         var row = await context.Settings.FirstOrDefaultAsync(s => s.Id == 1, cancellationToken);
         if (row is null) return null;
 
-        var anchor = row.PeriodAnchor == DayOfMonthAnchorName
-            ? PeriodAnchor.DayOfMonth(row.PeriodAnchorDay).Value
-            : PeriodAnchor.CalendarMonth;
+        var anchor = row.PeriodAnchor switch
+        {
+            DayOfMonthAnchorName => PeriodAnchor.DayOfMonth(row.PeriodAnchorDay).Value,
+            FirstMondayAnchorName => PeriodAnchor.FirstMonday,
+            _ => PeriodAnchor.CalendarMonth
+        };
 
         var definition = PeriodDefinition.Create(
             anchor, row.TimeZoneId, Enum.Parse<DayOfWeek>(row.FirstDayOfWeek)).Value;
@@ -34,9 +38,12 @@ public sealed class SettingsRepository(MoneyDbContext context) : ISettingsReposi
         row ??= new SettingsEntity { Id = 1 };
 
         row.BaseCurrencyCode = settings.BaseCurrencyCode;
-        row.PeriodAnchor = settings.PeriodDefinition.Anchor is PeriodAnchor.DayOfMonthAnchor
-            ? DayOfMonthAnchorName
-            : CalendarMonthAnchorName;
+        row.PeriodAnchor = settings.PeriodDefinition.Anchor switch
+        {
+            PeriodAnchor.DayOfMonthAnchor => DayOfMonthAnchorName,
+            PeriodAnchor.FirstMondayAnchor => FirstMondayAnchorName,
+            _ => CalendarMonthAnchorName
+        };
         row.PeriodAnchorDay = settings.PeriodDefinition.Anchor.AnchorDay;
         row.TimeZoneId = settings.PeriodDefinition.TimeZoneId;
         row.FirstDayOfWeek = settings.PeriodDefinition.FirstDayOfWeek.ToString();

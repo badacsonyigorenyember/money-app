@@ -21,7 +21,8 @@ public static class TransactionMapper
             var currency = Currency.FromCode(posting.CurrencyCode).Value;
 
             return new TransactionLineDto(
-                posting.AccountId, account.Name, account.Path, account.Kind.ToString(),
+                posting.AccountId, AccountDisplayName.For(account.Name, account.IsDeleted),
+                account.Path, account.Kind.ToString(),
                 DisplayAmountMapper.ToDisplay(posting.AmountMinor, account.Kind, currency),
                 posting.CurrencyCode, posting.Memo);
         }).ToArray();

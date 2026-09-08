@@ -2,29 +2,50 @@
 @model CategoriesModel
 @{ ViewData["Title"] = "Categories"; }
 
-<h1>Categories</h1>
+<div class="page-head">
+    <h1>Categories</h1>
+    <p>What your money is for. Every transaction is filed under one of these.</p>
+</div>
 
-<form method="get">
-    <select name="kind" onchange="this.form.submit()">
-        <option value="Expense" selected="@(Model.Kind == "Expense")">Spending</option>
-        <option value="Income" selected="@(Model.Kind == "Income")">Income</option>
-    </select>
-    <label><input type="checkbox" name="includeArchived" value="true"
-                  checked="@Model.IncludeArchived" onchange="this.form.submit()" /> Show archived</label>
+<form method="get" class="toolbar">
+    <div class="field">
+        <label for="c-kind">Showing</label>
+        <select id="c-kind" name="kind" onchange="this.form.submit()">
+            <option value="Expense" selected="@(Model.Kind == "Expense")">Spending categories</option>
+            <option value="Income" selected="@(Model.Kind == "Income")">Income categories</option>
+        </select>
+    </div>
+    <noscript><button type="submit">Show</button></noscript>
 </form>
 
-<form hx-post="@($"/categories?handler=Create&kind={Model.Kind}")"
-      hx-target="#tree" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input type="text" name="name" placeholder="New category" required />
-    <select name="parentCategoryId">
-        <option value="">Top level</option>
-        @foreach (var node in Model.Nodes)
-        {
-            <option value="@node.Id">@node.Name</option>
-        }
-    </select>
-    <button class="primary" type="submit">Add</button>
-</form>
+<section class="section" style="margin-top:1.5rem">
+    <h2>Add a @Model.KindLabel category</h2>
+
+    <form class="card" hx-post="@($"/categories?handler=Create&kind={Model.Kind}")"
+          hx-target="#tree" hx-swap="outerHTML" hx-disabled-elt="find button"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div class="field-grid">
+            <div class="field">
+                <label for="c-name">Name</label>
+                <input id="c-name" type="text" name="name" placeholder="Groceries" required />
+            </div>
+
+            <div class="field">
+                <label for="c-parent">Sits under</label>
+                <select id="c-parent" name="parentCategoryId">
+                    <option value="">Nothing — it is top level</option>
+                    @foreach (var node in Model.Nodes)
+                    {
+                        <option value="@node.Id">@node.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="primary" type="submit">Add category</button>
+        </div>
+    </form>
+</section>
 
 <partial name="Shared/_CategoryTree" model="Model" />

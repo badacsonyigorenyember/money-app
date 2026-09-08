@@ -34,7 +34,7 @@ public sealed class TransactionEndpointTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var (bank, category) = await SeedAsync(client);
 
-        var created = await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        var created = await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 12.50m, categoryId = category, accountId = bank,
                   occurredOn = "2026-09-01", description = "Lunch" },
             CancellationToken.None);
@@ -179,7 +179,7 @@ public sealed class TransactionEndpointTests : IClassFixture<ApiFactory>
 
         for (var i = 1; i <= 5; i++)
         {
-            await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+            await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
                 new { amount = i, categoryId = category, accountId = bank,
                       occurredOn = $"2026-09-{i:D2}", description = $"Item {i}" },
                 CancellationToken.None);
@@ -219,7 +219,7 @@ public sealed class TransactionEndpointTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var (bank, category) = await SeedAsync(client);
 
-        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 5m, categoryId = category, accountId = bank,
                   occurredOn = "2026-09-01", description = "To void" },
             CancellationToken.None))

@@ -67,13 +67,25 @@ Consequences worth stating plainly:
 
 - Balances are always `SUM(AmountMinor)` over non-voided postings. Never a
   stored field, never a cached column.
-- Transactions are **voided, never deleted**. Reference data is **archived,
-  never deleted**.
+- Transactions are **voided, never deleted** — no exception, including when the
+  account or category they name is deleted.
+- Reference data is **archived by default**. Deleting is a separate, explicitly
+  requested and irreversible action, and archiving first is required. A subtree
+  no posting refers to is erased outright; a subtree the ledger still names
+  keeps its rows with `IsDeleted`, out of every list, picker, archive and
+  name-collision check, so old entries can still say what they were for.
+  `AccountDisplayName` is the only place that marks such a name for a reader.
 - Categories are accounts (`Kind=Income|Expense, Role=Category`) in the same
   tree. There is no `CategoryId` column, and spending reports are a query
   restricted to `Kind=Expense` — that is what makes I12 structural.
-- Recurring materialisation and interest accrual are idempotent, guarded by a
-  unique index in the database, not only in code.
+- Recurring materialisation, interest accrual and bank import are idempotent,
+  guarded by a unique index in the database, not only in code. Import's key is
+  `ExternalRef` (`UX_Transactions_Import_ExternalRef`); the others' is
+  `(SourceKind, SourceId, OccurredOn)`.
+- A bank feed knows an amount, not a purpose, so every imported line lands on
+  an `Unclassified` category and is recategorised by repointing that one
+  posting. The feed is read-only and booked-only: pending entries are dropped,
+  because their identifiers change when they book.
 - The `ProjectionEngine` is read-only. Projected interest is never written as
   a transaction and never enters net worth.
 - `PeriodResolver` is the only component that computes period boundaries.

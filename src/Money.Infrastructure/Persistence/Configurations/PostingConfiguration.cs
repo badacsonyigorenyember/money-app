@@ -28,10 +28,10 @@ public sealed class PostingConfiguration : IEntityTypeConfiguration<Posting>
 
         // A posting must reference a real account row. This is separate from I4 (no posting
         // against an *archived* account, a domain rule) - this FK only rules out a dangling
-        // reference to an account that does not exist at all. Restrict, not Cascade: deletes do
-        // not exist in this system, and Restrict is what stops an account row deletion (which
-        // never happens in application code - accounts are archived, not deleted) from silently
-        // taking ledger history with it.
+        // reference to an account that does not exist at all. Restrict, not Cascade: an account
+        // the user deletes is only erased when no posting refers to it, and Restrict is what makes
+        // that safe - a bug that tried to erase a referenced account would be refused here rather
+        // than silently taking ledger history with it.
         builder.HasOne<Account>()
                .WithMany()
                .HasForeignKey(p => p.AccountId)

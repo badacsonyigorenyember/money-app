@@ -32,7 +32,7 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
         async Task<HttpResponseMessage> PostAsync()
         {
             using var request = new HttpRequestMessage(
-                HttpMethod.Post, "/api/v1/transactions/quick-expense")
+                HttpMethod.Post, "/api/v1/transactions/quick-entry")
             {
                 Content = JsonContent.Create(new
                 {
@@ -76,7 +76,7 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
         foreach (var _ in Enumerable.Range(0, 2))
         {
             using var request = new HttpRequestMessage(
-                HttpMethod.Post, "/api/v1/transactions/quick-expense")
+                HttpMethod.Post, "/api/v1/transactions/quick-entry")
             {
                 Content = JsonContent.Create(new
                 {
@@ -118,7 +118,7 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
         HttpRequestMessage BuildRequest()
         {
             var request = new HttpRequestMessage(
-                HttpMethod.Post, "/api/v1/transactions/quick-expense")
+                HttpMethod.Post, "/api/v1/transactions/quick-entry")
             {
                 Content = JsonContent.Create(new
                 {
@@ -173,7 +173,7 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
         async Task<HttpResponseMessage> PostAsync(decimal amount)
         {
             using var request = new HttpRequestMessage(
-                HttpMethod.Post, "/api/v1/transactions/quick-expense")
+                HttpMethod.Post, "/api/v1/transactions/quick-entry")
             {
                 Content = JsonContent.Create(new
                 {
@@ -221,7 +221,7 @@ public sealed class IdempotencyTests : IClassFixture<ApiFactory>
         var key = Guid.NewGuid().ToString("N");
 
         using var quickExpenseRequest = new HttpRequestMessage(
-            HttpMethod.Post, "/api/v1/transactions/quick-expense")
+            HttpMethod.Post, "/api/v1/transactions/quick-entry")
         {
             Content = JsonContent.Create(new
             {

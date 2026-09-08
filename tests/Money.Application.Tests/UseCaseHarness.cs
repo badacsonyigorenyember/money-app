@@ -18,6 +18,7 @@ public sealed class UseCaseHarness : IDisposable
         Context = _fixture.NewContext();
         Accounts = new AccountRepository(Context);
         Transactions = new TransactionRepository(Context);
+        RecurringRules = new RecurringRuleRepository(Context);
         Settings = new SettingsRepository(Context);
         Queries = new LedgerQueries(Context);
         UnitOfWork = new EfUnitOfWork(Context);
@@ -26,6 +27,7 @@ public sealed class UseCaseHarness : IDisposable
     public MoneyDbContext Context { get; }
     public IAccountRepository Accounts { get; }
     public ITransactionRepository Transactions { get; }
+    public IRecurringRuleRepository RecurringRules { get; }
     public ISettingsRepository Settings { get; }
     public ILedgerQueries Queries { get; }
     public IUnitOfWork UnitOfWork { get; }

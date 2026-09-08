@@ -9,21 +9,26 @@ namespace Money.Application.Mapping;
 public static class SettingsMapper
 {
     public const string CalendarMonthAnchorName = "CalendarMonth";
+    public const string FirstMondayAnchorName = "FirstMonday";
     public const string DayOfMonthAnchorName = "DayOfMonth";
 
     public static SettingsDto ToDto(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        var anchor = settings.PeriodDefinition.Anchor is PeriodAnchor.DayOfMonthAnchor
-            ? DayOfMonthAnchorName
-            : CalendarMonthAnchorName;
-
         return new SettingsDto(
-            settings.BaseCurrencyCode, anchor, settings.PeriodDefinition.Anchor.AnchorDay,
+            settings.BaseCurrencyCode, NameOf(settings.PeriodDefinition.Anchor),
+            settings.PeriodDefinition.Anchor.AnchorDay,
             settings.PeriodDefinition.TimeZoneId, settings.PeriodDefinition.FirstDayOfWeek.ToString(),
             settings.BackupRetentionCount, settings.FirstRunCompleted);
     }
+
+    public static string NameOf(PeriodAnchor anchor) => anchor switch
+    {
+        PeriodAnchor.DayOfMonthAnchor => DayOfMonthAnchorName,
+        PeriodAnchor.FirstMondayAnchor => FirstMondayAnchorName,
+        _ => CalendarMonthAnchorName
+    };
 
     public static Result<PeriodDefinition> BuildDefinition(
         string? anchorName, int anchorDay, string? timeZoneId, string? firstDayOfWeek)
@@ -34,6 +39,10 @@ public static class SettingsMapper
         {
             anchor = PeriodAnchor.DayOfMonth(anchorDay);
             if (anchor.IsFailure) return anchor.Error!;
+        }
+        else if (string.Equals(anchorName, FirstMondayAnchorName, StringComparison.OrdinalIgnoreCase))
+        {
+            anchor = Result<PeriodAnchor>.Ok(PeriodAnchor.FirstMonday);
         }
         else
         {

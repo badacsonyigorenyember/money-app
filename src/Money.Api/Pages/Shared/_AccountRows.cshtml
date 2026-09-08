@@ -1,33 +1,132 @@
 @model Money.Api.Pages.AccountsModel
 @using Money.Application.Presentation
 
+@functions {
+    static string TypeName(string role) => role switch
+    {
+        "SavingsPocket" => "Savings",
+        _ => role
+    };
+
+    static string Entries(int count) => count == 1 ? "1 entry" : $"{count} entries";
+}
+
 <div id="accountRows">
     @if (Model.ErrorMessage is not null)
     {
-        <p class="error">@Model.ErrorMessage</p>
+        <p class="notice notice--error" role="alert">@Model.ErrorMessage</p>
     }
 
-    <table>
-        <thead>
-            <tr><th>Account</th><th>Type</th><th class="amount">Balance</th><th></th></tr>
-        </thead>
-        <tbody>
-        @foreach (var row in Model.Rows)
+    @if (Model.Message is not null)
+    {
+        <p class="notice notice--ok" role="status">@Model.Message</p>
+    }
+
+    <section class="section">
+        <h2>Your accounts</h2>
+
+        @if (Model.Open.Count == 0)
         {
-            <tr class="@(row.Account.IsArchived ? "muted" : null)">
-                <td>@row.Account.Name</td>
-                <td>@(row.Account.Role == "SavingsPocket" ? "Savings" : row.Account.Role)</td>
-                <td class="amount">@CurrencyFormat.Format(row.Balance, row.Account.CurrencyCode) @row.Account.CurrencyCode</td>
-                <td>
-                    @if (!row.Account.IsArchived)
-                    {
-                        <button hx-post="@($"/accounts?handler=Archive&id={row.Account.Id}")"
-                                hx-target="#accountRows" hx-swap="outerHTML"
-                                hx-confirm="Archive this account? Its history is kept.">Archive</button>
-                    }
-                </td>
-            </tr>
+            <div class="empty">
+                <strong>No open accounts</strong>
+                <p>Add one above to start recording against it.</p>
+            </div>
         }
-        </tbody>
-    </table>
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Account</th>
+                            <th scope="col">Type</th>
+                            <th scope="col" class="amount">Balance</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Open)
+                    {
+                        <tr>
+                            <td class="primary-cell">@row.Account.Name</td>
+                            <td>@TypeName(row.Account.Role)</td>
+                            <td class="amount">
+                                @CurrencyFormat.Format(row.Balance, row.Account.CurrencyCode)<span class="ccy">@row.Account.CurrencyCode</span>
+                            </td>
+                            <td class="actions">
+                                <button class="btn--small"
+                                        hx-post="@($"/accounts?handler=Archive&id={row.Account.Id}")"
+                                        hx-target="#accountRows" hx-swap="outerHTML" hx-disabled-elt="this"
+                                        hx-confirm="Archive @row.Account.Name? It leaves your lists, and its history stays exactly as it is.">
+                                    Archive
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @if (Model.Archived.Count > 0)
+    {
+        <section class="section">
+            <h2>
+                Archived
+                <small>
+                    Out of your lists, history intact. Deleting is permanent — there is no undo,
+                    and everything filed underneath goes with it.
+                </small>
+            </h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Account</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">In your history</th>
+                            <th scope="col" class="amount">Balance</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Archived)
+                    {
+                        var confirm = row.Entries == 0
+                            ? $"Delete {row.Account.Name} for good? Nothing in your history uses it, so it will be erased completely. This cannot be undone."
+                            : $"Delete {row.Account.Name} for good? Your existing {Entries(row.Entries)} stays where it is, and will name it \"{row.Account.Name}{AccountDisplayName.DeletedSuffix}\". This cannot be undone.";
+
+                        <tr>
+                            <td class="primary-cell">@row.Account.Name</td>
+                            <td>@TypeName(row.Account.Role)</td>
+                            <td>
+                                @if (row.Entries == 0)
+                                {
+                                    <span class="badge badge--safe">Nothing uses it</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge--kept">@Entries(row.Entries)</span>
+                                }
+                            </td>
+                            <td class="amount">
+                                @CurrencyFormat.Format(row.Balance, row.Account.CurrencyCode)<span class="ccy">@row.Account.CurrencyCode</span>
+                            </td>
+                            <td class="actions">
+                                <button class="btn--small btn--danger"
+                                        hx-post="@($"/accounts?handler=Delete&id={row.Account.Id}")"
+                                        hx-target="#accountRows" hx-swap="outerHTML" hx-disabled-elt="this"
+                                        hx-confirm="@confirm">
+                                    Delete for good
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
 </div>

@@ -42,6 +42,13 @@ public static class AccountEndpoints
             return result.IsSuccess ? Results.NoContent() : DomainErrorResults.ToProblem(result);
         }).WithName("ArchiveAccount");
 
+        accounts.MapDelete("/{id:guid}", async (
+            Guid id, DeleteAccountHandler handler, CancellationToken cancellationToken) =>
+        {
+            var result = await handler.HandleAsync(id, cancellationToken);
+            return result.IsSuccess ? Results.NoContent() : DomainErrorResults.ToProblem(result);
+        }).WithName("DeleteAccount");
+
         accounts.MapGet("/{id:guid}/balance", async (
             Guid id, DateOnly? asOf, GetAccountBalanceHandler handler,
             CancellationToken cancellationToken) =>

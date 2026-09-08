@@ -41,6 +41,44 @@ public static class DomainErrors
                 $"The end date {endExclusive:O} must be after the start date {start:O}.");
     }
 
+    public static class Schedule
+    {
+        public static DomainError IntervalOutOfRange(int interval) =>
+            new("schedule.interval_out_of_range",
+                $"A rule must repeat every 1 to 1000 periods, but was set to {interval}.");
+
+        public static DomainError DayOfMonthOutOfRange(int day) =>
+            new("schedule.day_of_month_out_of_range",
+                $"The day of the month must be between 1 and 31, but was {day}.");
+
+        public static DomainError MonthOutOfRange(int month) =>
+            new("schedule.month_out_of_range",
+                $"The month must be between 1 and 12, but was {month}.");
+
+        public static DomainError WeekOfMonthOutOfRange(int week) =>
+            new("schedule.week_of_month_out_of_range",
+                $"Pick the first, second, third, fourth or last weekday of the month, not {week}.");
+
+        public static DomainError CustomStepEmpty() =>
+            new("schedule.custom_step_empty",
+                "A custom repeat needs a gap: set at least one of years, months or days above zero.");
+
+        public static DomainError CustomStepTooLarge() =>
+            new("schedule.custom_step_too_large",
+                "That custom repeat is longer than a lifetime; use smaller numbers.");
+
+        public static DomainError EndBeforeStart(DateOnly start, DateOnly end) =>
+            new("schedule.end_before_start",
+                $"The rule ends on {end:O}, which is before it starts on {start:O}.");
+
+        public static DomainError NotFound(Guid id) =>
+            new("schedule.not_found", $"Recurring rule {id} does not exist.");
+
+        public static DomainError UnknownFrequency(string frequency) =>
+            new("schedule.unknown_frequency",
+                $"'{frequency}' is not a repeat this app understands.");
+    }
+
     public static class Account
     {
         public static DomainError NameRequired() =>
@@ -82,6 +120,14 @@ public static class DomainErrors
         public static DomainError NameUnusable(string name) =>
             new("account.name_unusable",
                 $"'{name}' needs at least one letter or digit in it.");
+
+        public static DomainError AlreadyDeleted(string name) =>
+            new("account.already_deleted", $"'{name}' has already been deleted.");
+
+        public static DomainError DeleteNeedsArchiveFirst(string name, bool isCategory) =>
+            new("account.delete_needs_archive_first",
+                $"'{name}' is still in use. Archive the {(isCategory ? "category" : "account")} " +
+                "first, then delete it.");
 
         public static DomainError HasActiveDescendants(string name, bool isCategory) =>
             new("account.archive_blocked_by_active_descendants",
@@ -132,6 +178,11 @@ public static class DomainErrors
         public static DomainError NotFound(Guid id) =>
             new("transaction.not_found", $"Transaction {id} does not exist.");
 
+        public static DomainError ExternalRefRequired() =>
+            new("transaction.external_ref_required",
+                "An imported transaction needs an external reference; it is the key that stops " +
+                "the next sync importing the same line twice.");
+
         public static DomainError DateInFuture(DateOnly occurredOn, DateOnly today) =>
             new("transaction.date_too_far_in_future",
                 $"{occurredOn:O} is more than a year after {today:O}; check the date.");
@@ -153,6 +204,13 @@ public static class DomainErrors
 
         public static DomainError UnsupportedExportFormat(string format) =>
             new("admin.unsupported_export_format", $"'{format}' is not a supported export format.");
+    }
+
+    public static class Import
+    {
+        public static DomainError WindowOutOfRange(int days, int max) =>
+            new("import.window_out_of_range",
+                $"The import window must be between 1 and {max} days, but was {days}.");
     }
 
     public static class Idempotency

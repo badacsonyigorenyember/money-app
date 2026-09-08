@@ -22,7 +22,7 @@ public sealed record TransactionListItemDto(
 
 public sealed record TransactionPageDto(IReadOnlyList<TransactionListItemDto> Items, string? NextCursor);
 
-public sealed record QuickExpenseRequest(
+public sealed record QuickEntryRequest(
     decimal Amount, Guid CategoryId, Guid AccountId, DateOnly? OccurredOn,
     string? Description, string? Payee);
 

@@ -4,48 +4,85 @@
 <div id="rows">
     @if (Model.ErrorMessage is not null)
     {
-        <p class="error">@Model.ErrorMessage</p>
+        <p class="notice notice--error" role="alert">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.ImportMessage is not null)
+    {
+        <p class="notice" role="status">@Model.ImportMessage</p>
+    }
+
+    @if (Model.RepeatMessage is not null)
+    {
+        <p class="notice notice--ok" role="status">@Model.RepeatMessage</p>
     }
 
     @if (Model.Page.Items.Count == 0)
     {
-        <p class="muted">Nothing here yet. Add your first expense above.</p>
+        <div class="empty">
+            <strong>No transactions yet</strong>
+            <p>Record your first spend with the + button.</p>
+        </div>
     }
     else
     {
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th class="hide-narrow">Category</th>
-                    <th class="hide-narrow">Account</th>
-                    <th class="amount">Amount</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var item in Model.Page.Items)
-            {
-                <tr class="@(item.IsVoided ? "voided" : null)">
-                    <td>@item.OccurredOn.ToString("yyyy-MM-dd")</td>
-                    <td>@item.Description</td>
-                    <td class="hide-narrow">@item.CategoryName</td>
-                    <td class="hide-narrow">@item.AccountName</td>
-                    <td class="amount">@CurrencyFormat.Format(item.Amount, item.CurrencyCode) @item.CurrencyCode</td>
-                    <td>
-                        @if (!item.IsVoided)
-                        {
-                            <button hx-post="@($"/transactions?handler=Void&id={item.Id}&reason=Removed+by+the+user")"
-                                    hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
-                                    hx-confirm="Remove this transaction? It stays in the history, marked as removed.">
-                                Remove
-                            </button>
-                        }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Description</th>
+                        <th scope="col" class="hide-narrow">Category</th>
+                        <th scope="col" class="hide-narrow">Account</th>
+                        <th scope="col" class="amount">Amount</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Page.Items)
+                {
+                    <tr class="@(item.IsVoided ? "voided" : null)">
+                        <td class="date">@item.OccurredOn.ToString("yyyy-MM-dd")</td>
+                        <td class="primary-cell">
+                            @item.Description
+                            <span class="sub">
+                                @string.Join(" · ", new[] { item.CategoryName, item.AccountName }
+                                    .Where(part => !string.IsNullOrWhiteSpace(part)))
+                            </span>
+                        </td>
+                        <td class="hide-narrow">@item.CategoryName</td>
+                        <td class="hide-narrow">@item.AccountName</td>
+                        <td class="amount">
+                            @CurrencyFormat.Format(item.Amount, item.CurrencyCode)<span class="ccy">@item.CurrencyCode</span>
+                        </td>
+                        <td class="actions">
+                            @if (!item.IsVoided)
+                            {
+                                <button class="btn--small btn--danger"
+                                        hx-post="@($"/transactions?handler=Void&id={item.Id}&reason=Removed+by+the+user")"
+                                        hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
+                                        hx-confirm="Remove this transaction? It stays in your history, marked as removed.">
+                                    Remove
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="badge">Removed</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
     }
 </div>
+
+@if (Model.RulesOutOfBand)
+{
+    @* The repeating-rules list lives in its own section further up the page, so it rides along
+       on this response as an out-of-band swap rather than needing a second request. *@
+    <div id="recurring-list" hx-swap-oob="true">
+        <partial name="Shared/_RecurringRules" model="Model" />
+    </div>
+}

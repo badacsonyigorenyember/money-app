@@ -1,44 +1,288 @@
 @page
 @model TransactionsModel
-@{ ViewData["Title"] = "Transactions"; }
+@using Money.Application.Contracts
+@{
+    ViewData["Title"] = "Home";
 
-<h1>Transactions</h1>
-
-<form class="quick-add" method="post" asp-page-handler="QuickAdd"
-      hx-post="/transactions?handler=QuickAdd" hx-target="#rows" hx-swap="outerHTML"
-      hx-disabled-elt="find button"
-      hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input type="date" name="occurredOn" value="@Model.Today.ToString("yyyy-MM-dd")" required />
-    <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount"
-           autofocus required />
-    <select name="categoryId" required>
-        <option value="">Category…</option>
-        @foreach (var category in Model.Categories)
+    async Task Options(IReadOnlyList<CategoryNodeDto> nodes)
+    {
+        await Task.CompletedTask;
+        foreach (var node in nodes)
         {
-            <option value="@category.Id">@category.Name</option>
-            @foreach (var child in category.Children)
+            <option value="@node.Id">@node.Name</option>
+            foreach (var child in node.Children)
             {
-                <option value="@child.Id">@category.Name → @child.Name</option>
+                <option value="@child.Id">@node.Name → @child.Name</option>
             }
         }
-    </select>
-    <select name="accountId" required>
-        @foreach (var account in Model.Accounts)
-        {
-            <option value="@account.Id">@account.Name</option>
-        }
-    </select>
-    <input type="text" name="description" placeholder="Description (optional)" />
-    <button class="primary" type="submit">Add</button>
-</form>
+    }
+}
 
-<form method="get" class="filters">
-    <input type="search" name="q" value="@Model.Q" placeholder="Search…" />
-    <input type="date" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
-    <input type="date" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
-    <label><input type="checkbox" name="includeVoided" value="true"
-                  checked="@Model.IncludeVoided" /> Show removed</label>
-    <button type="submit">Filter</button>
-</form>
+<div class="page-head">
+    <h1>Home</h1>
+    <p>Everything you have recorded, newest first. Nothing here leaves this computer.</p>
+</div>
 
-<partial name="Shared/_TransactionRows" model="Model" />
+<section class="section" style="margin-top:0">
+    <h2>History</h2>
+
+    <form method="get" class="toolbar">
+        <div class="field">
+            <label for="f-q">Search</label>
+            <input id="f-q" type="search" name="q" value="@Model.Q"
+                   placeholder="Description or payee" />
+        </div>
+        <div class="field">
+            <label for="f-from">From</label>
+            <input id="f-from" type="date" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="field">
+            <label for="f-to">To</label>
+            <input id="f-to" type="date" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <label class="check">
+            <input type="checkbox" name="includeVoided" value="true" checked="@Model.IncludeVoided" />
+            Show removed
+        </label>
+        <button type="submit">Apply filters</button>
+    </form>
+
+    <partial name="Shared/_TransactionRows" model="Model" />
+</section>
+
+<section class="section">
+    <h2>
+        Repeating
+        <small>Entered for you when they fall due. Running twice changes nothing.</small>
+    </h2>
+
+    <div id="recurring-list">
+        <partial name="Shared/_RecurringRules" model="Model" />
+    </div>
+</section>
+
+@if (Model.Accounts.Count > 0)
+{
+    <section class="section">
+        <h2>
+            Bank sync
+            <small>The last 35 days, booked entries only. Running it twice changes nothing.</small>
+        </h2>
+
+        <form class="card card--sunk" method="post" asp-page-handler="ImportBank"
+              hx-post="/transactions?handler=ImportBank" hx-target="#rows" hx-swap="outerHTML"
+              hx-disabled-elt="find button">
+            <div class="field-grid">
+                <div class="field">
+                    <label for="sync-account">Account to sync</label>
+                    <select id="sync-account" name="accountId" required>
+                        @foreach (var account in Model.Accounts)
+                        {
+                            <option value="@account.Id">@account.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit">Sync from bank</button>
+            </div>
+        </form>
+    </section>
+}
+
+@* Recording is one control in one corner: a plus that turns into a cross, with
+   the sheet growing out of it. <dialog> brings the backdrop, the focus trap and
+   Escape-to-close with it. *@
+<button class="fab" type="button" onclick="recordEntry.showModal()"
+        aria-label="Record something">
+    <span class="fab-glyph" aria-hidden="true"></span>
+</button>
+
+<dialog id="recordEntry" class="sheet" aria-labelledby="recordEntry-title"
+        onclick="if (event.target === this) this.close()">
+    <div class="sheet-panel">
+        <h2 id="recordEntry-title">Record something</h2>
+
+        <form method="post" asp-page-handler="QuickAdd"
+              hx-post="/transactions?handler=QuickAdd" hx-target="#rows" hx-swap="outerHTML"
+              hx-disabled-elt="find button"
+              hx-on::after-request="if(event.detail.successful){this.reset();recordEntry.close()}">
+            <div class="field-grid">
+                <div class="field">
+                    <label for="qa-date">Date</label>
+                    <input id="qa-date" type="date" name="occurredOn"
+                           value="@Model.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+
+                <div class="field">
+                    <label for="qa-amount">Amount</label>
+                    <input id="qa-amount" type="number" name="amount" step="0.01" min="0.01"
+                           inputmode="decimal" placeholder="0.00" required autofocus />
+                </div>
+
+                <div class="field">
+                    <label for="qa-category">Category</label>
+                    <select id="qa-category" name="categoryId" required>
+                        <option value="">Choose one…</option>
+                        @if (Model.SpendCategories.Count > 0)
+                        {
+                            <optgroup label="Money out">@{ await Options(Model.SpendCategories); }</optgroup>
+                        }
+                        @if (Model.IncomeCategories.Count > 0)
+                        {
+                            <optgroup label="Money in">@{ await Options(Model.IncomeCategories); }</optgroup>
+                        }
+                    </select>
+                    <span class="hint">Picking an income category records money coming in.</span>
+                </div>
+
+                <div class="field">
+                    <label for="qa-account">Account</label>
+                    <select id="qa-account" name="accountId" required>
+                        @foreach (var account in Model.Accounts)
+                        {
+                            <option value="@account.Id">@account.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="field span-all">
+                    <label for="qa-description">Description</label>
+                    <input id="qa-description" type="text" name="description"
+                           placeholder="Optional — what was it for?" />
+                </div>
+            </div>
+
+            <label class="check repeat-toggle">
+                <input type="checkbox" id="qa-repeat" name="repeat" value="true" />
+                <span>
+                    Repeat this automatically
+                    <span class="hint">
+                        For a salary, rent, a subscription — anything that lands on a schedule.
+                    </span>
+                </span>
+            </label>
+
+            <fieldset class="repeat card--sunk">
+                <legend class="visually-hidden">How often does this repeat?</legend>
+
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="qa-freq">Repeats</label>
+                        <select id="qa-freq" name="every.Frequency">
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly" selected>Monthly</option>
+                            <option value="Yearly">Yearly</option>
+                            <option value="Custom">Custom…</option>
+                        </select>
+                    </div>
+
+                    <div class="field" data-when="Daily Weekly Monthly Yearly">
+                        <label for="qa-interval">Every</label>
+                        <input id="qa-interval" type="number" name="every.Interval"
+                               min="1" max="1000" value="1" />
+                        <span class="hint">1 means every one, 2 means every other.</span>
+                    </div>
+
+                    <div class="field" data-when="Weekly">
+                        <label for="qa-dow">On</label>
+                        <select id="qa-dow" name="every.DayOfWeek">
+                            @foreach (var day in Enum.GetValues<DayOfWeek>())
+                            {
+                                <option value="@day">@day</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field" data-when="Yearly">
+                        <label for="qa-month">In</label>
+                        <select id="qa-month" name="every.Month">
+                            @for (var month = 1; month <= 12; month++)
+                            {
+                                <option value="@month">
+                                    @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field" data-when="Monthly Yearly">
+                        <label for="qa-monthday">On</label>
+                        <select id="qa-monthday" name="every.MonthDay">
+                            <optgroup label="A day of the month">
+                                @for (var day = 1; day <= 31; day++)
+                                {
+                                    <option value="d:@day" selected="@(day == Model.Today.Day)">
+                                        The @Ordinal(day)
+                                    </option>
+                                }
+                            </optgroup>
+                            <optgroup label="A weekday of the month">
+                                @foreach (var (week, label) in Weeks)
+                                {
+                                    @foreach (var day in Enum.GetValues<DayOfWeek>())
+                                    {
+                                        <option value="w:@week:@day">The @label @day</option>
+                                    }
+                                }
+                            </optgroup>
+                        </select>
+                        <span class="hint">The 31st becomes the 28th or 29th in February.</span>
+                    </div>
+
+                    <div class="field" data-when="Custom">
+                        <label for="qa-years">Years</label>
+                        <input id="qa-years" type="number" name="every.Years" min="0" max="100" value="0" />
+                    </div>
+
+                    <div class="field" data-when="Custom">
+                        <label for="qa-months">Months</label>
+                        <input id="qa-months" type="number" name="every.Months" min="0" max="1200" value="0" />
+                    </div>
+
+                    <div class="field" data-when="Custom">
+                        <label for="qa-days">Days</label>
+                        <input id="qa-days" type="number" name="every.Days" min="0" max="36500" value="0" />
+                    </div>
+
+                    <div class="field">
+                        <label for="qa-until">Until</label>
+                        <input id="qa-until" type="date" name="every.EndDate" />
+                        <span class="hint">Leave empty to keep going.</span>
+                    </div>
+                </div>
+
+                <p class="hint">
+                    The first occurrence is the date above. Entries are made on the day they fall due,
+                    not at a particular time.
+                </p>
+            </fieldset>
+
+            <div class="form-actions">
+                <button class="primary" type="submit">Add</button>
+            </div>
+        </form>
+    </div>
+
+    <button class="fab fab--close" type="button" onclick="recordEntry.close()"
+            aria-label="Close without recording">
+        <span class="fab-glyph" aria-hidden="true"></span>
+    </button>
+</dialog>
+
+@functions {
+    private static readonly (int Week, string Label)[] Weeks =
+    [
+        (1, "first"), (2, "second"), (3, "third"), (4, "fourth"), (-1, "last")
+    ];
+
+    private static string Ordinal(int day) => day switch
+    {
+        1 or 21 or 31 => $"{day}st",
+        2 or 22 => $"{day}nd",
+        3 or 23 => $"{day}rd",
+        _ => $"{day}th"
+    };
+}

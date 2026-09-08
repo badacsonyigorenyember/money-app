@@ -4,13 +4,14 @@ using Money.Application.Settings;
 
 namespace Money.Api.Pages;
 
+/// <summary>
+/// The root is a signpost, not a page: a fresh database goes to the wizard, everything else goes
+/// to the ledger, which is the home page.
+/// </summary>
 public sealed class IndexModel(GetSettingsHandler settings) : PageModel
 {
-    public bool FirstRunCompleted { get; private set; }
-
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
-    {
-        FirstRunCompleted = (await settings.HandleAsync(cancellationToken)).FirstRunCompleted;
-        return FirstRunCompleted ? Page() : RedirectToPage("/FirstRun");
-    }
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken) =>
+        (await settings.HandleAsync(cancellationToken)).FirstRunCompleted
+            ? RedirectToPage("/Transactions")
+            : RedirectToPage("/FirstRun");
 }

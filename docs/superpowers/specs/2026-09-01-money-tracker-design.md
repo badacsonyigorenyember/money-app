@@ -39,7 +39,7 @@ Recorded explicitly so scope creep is visible:
 | Excluded | Reason | Left room for it? |
 |---|---|---|
 | Market-priced holdings (stocks, ETFs, crypto) | User tracks fixed-rate instruments only | Yes — account role and valuation table shape reserved |
-| Bank / CSV statement import | No integration in v1; recurring rules cover the repetitive part | Yes — `Transaction.SourceKind = Import` reserved |
+| Bank / CSV statement import | **Shipped after approval, outside the original v1 line.** Enable Banking (PSD2 AISP) read-only feed for one linked account; CSV import still deferred | `Transaction.SourceKind = Import` + `ExternalRef`, guarded by `UX_Transactions_Import_ExternalRef` |
 | Multi-currency UI | Single currency in practice | Yes — currency code stored on every amount from day one |
 | Credit cards / loans UI | Not requested | Yes — `AccountKind.Liability` exists in the schema |
 | Multi-user / accounts / login | Single-user desktop app | Yes — `ICurrentUser` seam, no owner columns |
@@ -69,7 +69,7 @@ Recorded explicitly so scope creep is visible:
 | D8 | Money is `long` **minor units** plus an ISO-4217 code; rates are `decimal` | Floating point on money is the classic fatal bug in this category of app. |
 | D9 | Amounts stored as SQLite `INTEGER`; rates as `NUMERIC`/`TEXT` | Never `REAL`. |
 | D10 | Database lives in `%APPDATA%`, **not** next to the executable | The project folder is on the Desktop, which is commonly OneDrive-synced. A cloud-synced SQLite file in WAL mode is a corruption risk. |
-| D11 | Transactions are **voided, never deleted**; reference data is archived | Preserves an audit trail and keeps historical reports intact. |
+| D11 | Transactions are **voided, never deleted**; reference data is archived, and deleting an archived account or category never touches its transactions | Preserves an audit trail and keeps historical reports intact. Deleting erases the rows outright when nothing refers to them, and otherwise flags them `IsDeleted` so history can still name them. |
 | D12 | `ICurrentUser` seam now, but **no `OwnerId` columns** | Adding one column to a single-user database later is trivial; speculative multi-tenancy is not. |
 
 ---
@@ -372,11 +372,13 @@ RecurringRule
   LastMaterialisedThrough (date?)
 
 Schedule
-  Frequency = Daily | Weekly | Monthly | Yearly
+  Frequency = Daily | Weekly | Monthly | Yearly | Custom
   Interval  >= 1
   Weekly  -> DayOfWeek
   Monthly -> DayOfMonth (1..31, clamped to month length)
-  Yearly  -> (Month, Day)
+           | (WeekOfMonth, DayOfWeek)   1..4, or -1 for the last
+  Yearly  -> Month + either of the two Monthly shapes
+  Custom  -> (Years, Months, Days) applied together; at least one non-zero
 ```
 
 `ScheduleExpander.Expand(schedule, from, to)` is a pure function returning
@@ -384,11 +386,17 @@ occurrence dates. A monthly rule on day 31 yields 28 or 29 February — this is
 an explicit test case, as are 30-day months and leap years.
 
 **Materialisation.** A `RecurringMaterialiser` runs at application startup and
-then daily, expanding every active rule up to today:
+whenever the transactions screen is opened, expanding every active rule up to
+today:
 
 - `AutoPost` rules create the transaction directly.
 - `NeedsConfirmation` rules create a `PendingOccurrence` row that the user
   confirms, edits (variable bills) or skips.
+
+*As built:* every rule is `AutoPost`. `PendingOccurrence`, `MaxOccurrences` and
+the confirmation inbox are not implemented, and `TemplatePostings` is stored as
+the two account ids the rule posts to — worked out once, at creation, by the
+same `LedgerTemplates` a hand-typed entry goes through.
 
 **Idempotency.** Unique index on `(RuleId, OccurrenceDate)` across both
 generated transactions and pending occurrences. Running the materialiser
@@ -549,13 +557,16 @@ POST   /api/v1/transactions                 honours Idempotency-Key header
 GET    /api/v1/transactions/{id}
 PUT    /api/v1/transactions/{id}
 POST   /api/v1/transactions/{id}/void
-POST   /api/v1/transactions/quick-expense   sugar: amount, category, account, date
+POST   /api/v1/transactions/quick-entry     sugar: amount, category, account, date;
+                                            the category's Kind decides spend vs income
 POST   /api/v1/transactions/transfer        sugar: from, to, amount, date
 
 GET    /api/v1/recurring-rules
 POST   /api/v1/recurring-rules
 PATCH  /api/v1/recurring-rules/{id}
 POST   /api/v1/recurring-rules/{id}/pause
+POST   /api/v1/recurring-rules/{id}/resume
+DELETE /api/v1/recurring-rules/{id}
 GET    /api/v1/recurring/pending
 POST   /api/v1/recurring/pending/{id}/confirm
 POST   /api/v1/recurring/pending/{id}/skip
@@ -754,7 +765,7 @@ turns it into the executable that was asked for.
 | Double-entry vocabulary leaks into the UI | Unusable for the intended user | The word "posting" never appears in a view; a UI review at the end of phases 2 and 7 |
 | Sign convention confusion in reports | Income shows negative, expenses inverted | Convention documented in section 5.3, applied in one mapper, asserted in API tests |
 | Over-engineering the layering for a solo app | Slow progress | Five projects is the floor for the dependency rule to be enforceable; `Money.Web` was deliberately merged into `Money.Api` |
-| Scope creep toward market-priced investments or bank import | Phase 8 never ships | Section 2 is the contract; both are explicitly deferred |
+| Scope creep toward market-priced investments | Phase 8 never ships | Section 2 is the contract. Bank import was later approved explicitly and is no longer deferred; market-priced holdings still are |
 
 ---
 
@@ -765,8 +776,9 @@ turns it into the executable that was asked for.
    crisis.
 2. The user runs Windows 11 with WebView2 present (the default) and will
    install the .NET 9 SDK to build.
-3. Historical data will be entered manually or start from an opening balance;
-   no import path is required for v1.
+3. Historical data is entered manually or starts from an opening balance. The
+   bank feed only reaches back as far as the ASPSP exposes (about 90 days),
+   so it is a keep-up mechanism, not a backfill.
 4. Data volume stays in the tens of thousands of transactions, so aggregate
    queries run directly against `postings` with no materialised summary
    tables. A `period_summary` table is added only if measurement shows it is

@@ -1,4 +1,11 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    // "Where am I" is answered once, here, so no page can forget to answer it.
+    var path = Context.Request.Path.Value ?? "/";
+    string? Current(string href) =>
+        (href == "/" ? path == "/" : path.StartsWith(href, StringComparison.OrdinalIgnoreCase))
+            ? "page" : null;
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,17 +17,19 @@
     <script src="~/lib/htmx.min.js" defer></script>
 </head>
 <body hx-headers='{"RequestVerificationToken": "@Antiforgery.GetAndStoreTokens(Context).RequestToken"}'>
+    <a class="skip-link" href="#content">Skip to content</a>
+
     <header class="topbar">
         <a class="brand" href="/">Money</a>
-        <nav>
-            <a href="/transactions">Transactions</a>
-            <a href="/categories">Categories</a>
-            <a href="/accounts">Accounts</a>
-            <a href="/settings">Settings</a>
+        <nav aria-label="Main">
+            <a href="/transactions" aria-current="@Current("/transactions")">Home</a>
+            <a href="/categories" aria-current="@Current("/categories")">Categories</a>
+            <a href="/accounts" aria-current="@Current("/accounts")">Accounts</a>
+            <a href="/settings" aria-current="@Current("/settings")">Settings</a>
         </nav>
     </header>
 
-    <main>
+    <main id="content">
         @RenderBody()
     </main>
 

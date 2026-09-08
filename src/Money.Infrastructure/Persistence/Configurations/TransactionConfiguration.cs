@@ -45,5 +45,12 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
                 "UX_Transactions_Source_Idempotency")
                .IsUnique()
                .HasFilter("SourceKind IN ('Recurring','Accrual') AND SourceId IS NOT NULL");
+
+        // The same guard for the bank feed, which identifies a line by ExternalRef rather than
+        // by (SourceId, OccurredOn). Partial for the same reason: a manual transaction may carry
+        // an ExternalRef (a receipt number, an invoice id) without it having to be unique.
+        builder.HasIndex(t => t.ExternalRef, "UX_Transactions_Import_ExternalRef")
+               .IsUnique()
+               .HasFilter("SourceKind = 'Import' AND ExternalRef IS NOT NULL");
     }
 }

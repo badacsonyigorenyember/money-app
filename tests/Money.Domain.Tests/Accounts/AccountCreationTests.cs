@@ -198,6 +198,43 @@ public sealed class AccountCreationTests
     }
 
     [Fact]
+    public void An_account_must_be_archived_before_it_can_be_deleted()
+    {
+        // Archiving is the step that takes an account out of circulation and gives the user a
+        // chance to change their mind. Deleting is the one action that cannot be undone, so it
+        // never happens straight off a live account.
+        var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);
+
+        account.Delete(Now).Error!.Code.Should().Be("account.delete_needs_archive_first");
+        account.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Deleting_an_archived_account_marks_it_deleted_exactly_once()
+    {
+        var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);
+        account.Archive(Now);
+        var later = Now.AddDays(1);
+
+        account.Delete(later).IsSuccess.Should().BeTrue();
+        account.IsDeleted.Should().BeTrue();
+        account.UpdatedAtUtc.Should().Be(later);
+
+        account.Delete(later).Error!.Code.Should().Be("account.already_deleted");
+    }
+
+    [Fact]
+    public void A_deleted_account_cannot_be_restored()
+    {
+        var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);
+        account.Archive(Now);
+        account.Delete(Now);
+
+        account.Restore(Now).Error!.Code.Should().Be("account.already_deleted");
+        account.IsArchived.Should().BeTrue();
+    }
+
+    [Fact]
     public void UpdatePresentation_sets_every_presentation_field()
     {
         var account = Root("Gaming", AccountKind.Expense, AccountRole.Category);

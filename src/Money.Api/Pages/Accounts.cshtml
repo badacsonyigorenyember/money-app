@@ -2,20 +2,51 @@
 @model AccountsModel
 @{ ViewData["Title"] = "Accounts"; }
 
-<h1>Accounts</h1>
+<div class="page-head">
+    <h1>Accounts</h1>
+    <p>Where your money actually sits: bank accounts, cash, savings pockets and investments.</p>
+</div>
 
-<form hx-post="/accounts?handler=Create" hx-target="#accountRows" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) this.reset()">
-    <input type="text" name="name" placeholder="Account name" required />
-    <select name="role">
-        <option value="Bank">Bank</option>
-        <option value="Cash">Cash</option>
-        <option value="SavingsPocket">Savings</option>
-        <option value="Investment">Investment</option>
-    </select>
-    <input type="number" name="openingBalance" step="0.01" placeholder="Starting balance" />
-    <input type="date" name="openedOn" />
-    <button class="primary" type="submit">Add</button>
-</form>
+<section class="section" style="margin-top:0">
+    <h2>Add an account</h2>
+
+    <form class="card" hx-post="/accounts?handler=Create" hx-target="#accountRows" hx-swap="outerHTML"
+          hx-disabled-elt="find button"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div class="field-grid">
+            <div class="field">
+                <label for="a-name">Name</label>
+                <input id="a-name" type="text" name="name" placeholder="Current account" required />
+            </div>
+
+            <div class="field">
+                <label for="a-role">Type</label>
+                <select id="a-role" name="role">
+                    <option value="Bank">Bank</option>
+                    <option value="Cash">Cash</option>
+                    <option value="SavingsPocket">Savings</option>
+                    <option value="Investment">Investment</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="a-balance">Starting balance</label>
+                <input id="a-balance" type="number" name="openingBalance" step="0.01"
+                       inputmode="decimal" placeholder="0.00" />
+                <span class="hint">What is in it today. Leave blank for nothing.</span>
+            </div>
+
+            <div class="field">
+                <label for="a-opened">As of</label>
+                <input id="a-opened" type="date" name="openedOn" />
+                <span class="hint">The date that balance was true.</span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="primary" type="submit">Add account</button>
+        </div>
+    </form>
+</section>
 
 <partial name="Shared/_AccountRows" model="Model" />

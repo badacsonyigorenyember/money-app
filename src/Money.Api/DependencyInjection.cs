@@ -5,12 +5,15 @@ using Money.Application.Accounts;
 using Money.Application.Admin;
 using Money.Application.Categories;
 using Money.Application.FirstRun;
+using Money.Application.Import;
+using Money.Application.Recurring;
 using Money.Application.Settings;
 using Money.Application.Transactions;
 using Money.Domain.Time;
 using Money.Infrastructure.Backup;
 using Money.Infrastructure.Export;
 using Money.Infrastructure.Identity;
+using Money.Infrastructure.Import;
 using Money.Infrastructure.Persistence;
 using Money.Infrastructure.Persistence.Repositories;
 using Money.Infrastructure.Time;
@@ -40,6 +43,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
+        services.AddScoped<IRecurringRuleRepository, RecurringRuleRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<ILedgerQueries, LedgerQueries>();
@@ -64,9 +68,12 @@ public static class DependencyInjection
 
         services.AddScoped<DatabaseInitializer>();
 
+        AddBankFeed(services, configuration);
+
         services.AddScoped<CreateAccountHandler>();
         services.AddScoped<PatchAccountHandler>();
         services.AddScoped<ArchiveAccountHandler>();
+        services.AddScoped<DeleteAccountHandler>();
         services.AddScoped<ListAccountsHandler>();
         services.AddScoped<GetAccountBalanceHandler>();
         services.AddScoped<CreateCategoryHandler>();
@@ -76,14 +83,50 @@ public static class DependencyInjection
         services.AddScoped<ReplaceTransactionHandler>();
         services.AddScoped<VoidTransactionHandler>();
         services.AddScoped<ListTransactionsHandler>();
-        services.AddScoped<QuickExpenseHandler>();
+        services.AddScoped<QuickEntryHandler>();
         services.AddScoped<TransferHandler>();
         services.AddScoped<GetSettingsHandler>();
         services.AddScoped<UpdateSettingsHandler>();
         services.AddScoped<CompleteFirstRunSetupHandler>();
         services.AddScoped<CreateBackupHandler>();
         services.AddScoped<RunIntegrityCheckHandler>();
+        services.AddScoped<ImportBankTransactionsHandler>();
+        services.AddScoped<CreateRecurringRuleHandler>();
+        services.AddScoped<ListRecurringRulesHandler>();
+        services.AddScoped<UpdateRecurringRuleHandler>();
+        services.AddScoped<RecurringMaterialiser>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Enable Banking holds the PSD2 licence; this app is one of their applications, restricted
+    /// to accounts the user linked themselves. The private key is read from a file rather than
+    /// inlined in configuration so the PEM downloaded from their Control Panel can be pointed at
+    /// directly and never lands in a committed settings file. A missing or unreadable key is not
+    /// a startup failure: the feed simply reports itself unconfigured when asked.
+    /// </summary>
+    private static void AddBankFeed(IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(EnableBankingOptions.SectionName);
+        var keyPath = section["PrivateKeyPath"];
+
+        var pem = !string.IsNullOrWhiteSpace(keyPath) && File.Exists(keyPath)
+            ? File.ReadAllText(keyPath)
+            : section["PrivateKeyPem"] ?? "";
+
+        var options = new EnableBankingOptions(
+            ApplicationId: section["ApplicationId"] ?? "",
+            PrivateKeyPem: pem,
+            SessionId: section["SessionId"] ?? "",
+            AccountUid: section["AccountUid"] ?? "");
+
+        services.AddSingleton(options);
+
+        services.AddHttpClient<IBankFeed, EnableBankingClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.enablebanking.com");
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
     }
 }

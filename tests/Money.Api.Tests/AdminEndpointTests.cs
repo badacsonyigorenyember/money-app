@@ -93,7 +93,7 @@ public sealed class AdminEndpointTests : IClassFixture<ApiFactory>
             new { name = "Food " + suffix, kind = "Expense" }, CancellationToken.None))
             .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
 
-        await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 12.50m, categoryId = category!.Id, accountId = bank!.Id,
                   occurredOn = "2026-09-01", description = "Lunch" },
             CancellationToken.None);

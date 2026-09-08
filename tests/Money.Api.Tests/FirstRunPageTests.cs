@@ -84,7 +84,8 @@ public sealed class FirstRunPageTests
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
 
         var home = await client.GetAsync("/", CancellationToken.None);
-        home.StatusCode.Should().Be(HttpStatusCode.OK);
+        home.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        home.Headers.Location!.ToString().Should().ContainEquivalentOf("transactions");
 
         var categories = await client.GetStringAsync("/categories", CancellationToken.None);
         categories.Should().Contain("Groceries").And.Contain("Alcohol").And.Contain("Gaming");

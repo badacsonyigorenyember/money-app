@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Money.Application.Abstractions;
+using Money.Application.Presentation;
 
 namespace Money.Infrastructure.Persistence;
 
@@ -49,6 +50,16 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
             .GroupBy(x => x.p.AccountId)
             .Select(g => new AccountBalanceRow(g.Key, g.Sum(x => x.p.AmountMinor)))
             .ToListAsync(cancellationToken);
+
+    public async Task<int> SubtreeEntryCountAsync(
+        string path, CancellationToken cancellationToken = default)
+    {
+        var childPrefix = path + "/";
+
+        return await context.Postings
+            .Join(context.Accounts, p => p.AccountId, a => a.Id, (p, a) => a)
+            .CountAsync(a => a.Path == path || a.Path.StartsWith(childPrefix), cancellationToken);
+    }
 
     public async Task<TransactionPage> ListAsync(
         TransactionQuery query, CancellationToken cancellationToken = default)
@@ -114,7 +125,8 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
                     p.AmountMinor,
                     p.CurrencyCode,
                     Kind = context.Accounts.First(a => a.Id == p.AccountId).Kind,
-                    Name = context.Accounts.First(a => a.Id == p.AccountId).Name
+                    Name = context.Accounts.First(a => a.Id == p.AccountId).Name,
+                    IsDeleted = context.Accounts.First(a => a.Id == p.AccountId).IsDeleted
                 }).ToList()
             })
             .ToListAsync(cancellationToken);
@@ -138,7 +150,8 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
             return new TransactionRow(
                 t.Id, t.OccurredOn, t.Description, t.Payee, t.IsVoided,
                 headline.CurrencyCode, headline.AmountMinor, headline.Kind,
-                expenseLine?.Name, assetLine?.Name);
+                expenseLine is null ? null : AccountDisplayName.For(expenseLine.Name, expenseLine.IsDeleted),
+                assetLine is null ? null : AccountDisplayName.For(assetLine.Name, assetLine.IsDeleted));
         }).ToList();
 
         var nextCursor = hasMore && rows.Count > 0

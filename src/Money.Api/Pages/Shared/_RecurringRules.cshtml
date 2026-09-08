@@ -1,0 +1,66 @@
+@model Money.Api.Pages.TransactionsModel
+@using Money.Application.Presentation
+
+@if (Model.Rules.Count == 0)
+{
+    <div class="empty">
+        <strong>Nothing repeats yet</strong>
+        <p>
+            Tick <em>Repeat this automatically</em> when you record something — a salary, rent, a
+            subscription — and it will be entered for you from then on.
+        </p>
+    </div>
+}
+else
+{
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">What</th>
+                    <th scope="col">When</th>
+                    <th scope="col" class="hide-narrow">Next</th>
+                    <th scope="col" class="amount">Amount</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var rule in Model.Rules)
+            {
+                <tr class="@(rule.IsActive ? null : "voided")">
+                    <td class="primary-cell">
+                        @rule.Description
+                        <span class="sub">@rule.DebitAccountName · @rule.CreditAccountName</span>
+                    </td>
+                    <td>
+                        @rule.ScheduleSummary
+                        <span class="sub">
+                            From @rule.StartDate.ToString("yyyy-MM-dd")@(rule.EndDate is { } end
+                                ? $" until {end:yyyy-MM-dd}" : "")
+                        </span>
+                    </td>
+                    <td class="hide-narrow date">
+                        @(rule.NextOccurrence?.ToString("yyyy-MM-dd") ?? "—")
+                    </td>
+                    <td class="amount">
+                        @CurrencyFormat.Format(rule.Amount, rule.CurrencyCode)<span class="ccy">@rule.CurrencyCode</span>
+                    </td>
+                    <td class="actions">
+                        <button class="btn--small"
+                                hx-post="@($"/transactions?handler=PauseRepeat&id={rule.Id}&active={(!rule.IsActive).ToString().ToLowerInvariant()}")"
+                                hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this">
+                            @(rule.IsActive ? "Pause" : "Resume")
+                        </button>
+                        <button class="btn--small btn--danger"
+                                hx-post="@($"/transactions?handler=DeleteRepeat&id={rule.Id}")"
+                                hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
+                                hx-confirm="Stop repeating this? Entries it already made stay in your history.">
+                            Stop
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

@@ -22,4 +22,10 @@ public interface IAccountRepository
     Task<IReadOnlyList<Account>> DescendantsOfAsync(string pathPrefix, CancellationToken cancellationToken = default);
 
     void Add(Account account);
+
+    /// <summary>
+    /// Erases the row. Only ever called for an account no posting references - anything the ledger
+    /// still names is deleted with <see cref="Account.Delete"/>, which keeps the row.
+    /// </summary>
+    void Remove(Account account);
 }

@@ -56,8 +56,8 @@ public static class TransactionEndpoints
             return result.IsSuccess ? Results.NoContent() : DomainErrorResults.ToProblem(result);
         }).WithName("VoidTransaction");
 
-        transactions.MapPost("/quick-expense", async (
-            QuickExpenseRequest request, QuickExpenseHandler handler,
+        transactions.MapPost("/quick-entry", async (
+            QuickEntryRequest request, QuickEntryHandler handler,
             CancellationToken cancellationToken) =>
         {
             var result = await handler.HandleAsync(request, cancellationToken);
@@ -66,7 +66,7 @@ public static class TransactionEndpoints
                 : DomainErrorResults.ToProblem(result);
         })
         .AddEndpointFilter<IdempotencyFilter>()
-        .WithName("QuickExpense");
+        .WithName("QuickEntry");
 
         transactions.MapPost("/transfer", async (
             TransferRequest request, TransferHandler handler, CancellationToken cancellationToken) =>

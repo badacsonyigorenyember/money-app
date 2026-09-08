@@ -35,8 +35,11 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
                .HasForeignKey(a => a.ParentAccountId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(a => a.Path).IsUnique();
-        builder.HasIndex(a => new { a.ParentAccountId, a.Name }).IsUnique();
+        // Both uniqueness rules apply to the living tree only. A deleted account keeps its name and
+        // path so old ledger entries can still be read, and must not thereby reserve that name
+        // forever - deleting "Groceries" has to leave the user free to create "Groceries" again.
+        builder.HasIndex(a => a.Path).IsUnique().HasFilter("IsDeleted = 0");
+        builder.HasIndex(a => new { a.ParentAccountId, a.Name }).IsUnique().HasFilter("IsDeleted = 0");
         builder.HasIndex(a => new { a.Kind, a.Role });
     }
 }

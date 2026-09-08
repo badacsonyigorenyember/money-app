@@ -37,7 +37,7 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
 
     public void Dispose() => _harness.Dispose();
 
-    private QuickExpenseHandler QuickExpense => new(
+    private QuickEntryHandler QuickEntry => new(
         _harness.Accounts, _harness.Transactions, _harness.Settings, _harness.UnitOfWork, _harness.Clock);
 
     private TransferHandler Transfer => new(
@@ -46,8 +46,8 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task A_quick_expense_needs_only_an_amount_a_category_and_an_account()
     {
-        var result = await QuickExpense.HandleAsync(
-            new QuickExpenseRequest(12.50m, _food.Id, _bank.Id, null, null, null),
+        var result = await QuickEntry.HandleAsync(
+            new QuickEntryRequest(12.50m, _food.Id, _bank.Id, null, null, null),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -61,8 +61,8 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
         // 23:30 UTC on 31 August is already 1 September in Budapest.
         _harness.Clock.UtcNow = new DateTimeOffset(2026, 8, 31, 23, 30, 0, TimeSpan.Zero);
 
-        var result = await QuickExpense.HandleAsync(
-            new QuickExpenseRequest(5m, _food.Id, _bank.Id, null, null, null), CancellationToken.None);
+        var result = await QuickEntry.HandleAsync(
+            new QuickEntryRequest(5m, _food.Id, _bank.Id, null, null, null), CancellationToken.None);
 
         result.Value.OccurredOn.Should().Be(new DateOnly(2026, 9, 1));
     }
@@ -70,8 +70,8 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task A_quick_expense_without_a_description_is_named_after_its_category()
     {
-        var result = await QuickExpense.HandleAsync(
-            new QuickExpenseRequest(5m, _food.Id, _bank.Id, null, null, null), CancellationToken.None);
+        var result = await QuickEntry.HandleAsync(
+            new QuickEntryRequest(5m, _food.Id, _bank.Id, null, null, null), CancellationToken.None);
 
         result.Value.Description.Should().Be("Food");
     }
@@ -79,16 +79,16 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task A_quick_expense_against_a_non_category_is_rejected()
     {
-        (await QuickExpense.HandleAsync(
-            new QuickExpenseRequest(5m, _savings.Id, _bank.Id, null, null, null), CancellationToken.None))
+        (await QuickEntry.HandleAsync(
+            new QuickEntryRequest(5m, _savings.Id, _bank.Id, null, null, null), CancellationToken.None))
             .Error!.Code.Should().Be("account.not_a_category");
     }
 
     [Fact]
     public async Task A_quick_expense_of_zero_or_less_is_rejected()
     {
-        (await QuickExpense.HandleAsync(
-            new QuickExpenseRequest(0m, _food.Id, _bank.Id, null, null, null), CancellationToken.None))
+        (await QuickEntry.HandleAsync(
+            new QuickEntryRequest(0m, _food.Id, _bank.Id, null, null, null), CancellationToken.None))
             .Error!.Code.Should().Be("transaction.zero_amount");
     }
 

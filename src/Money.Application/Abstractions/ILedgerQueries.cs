@@ -47,5 +47,12 @@ public interface ILedgerQueries
 
     Task<TransactionPage> ListAsync(TransactionQuery query, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// How many ledger entries name the subtree rooted at <paramref name="path"/>, inclusive of the
+    /// root. Removed transactions count: their entries are still history a reader can open, so an
+    /// account named by one is not free to be erased. Zero is what makes a delete safe.
+    /// </summary>
+    Task<int> SubtreeEntryCountAsync(string path, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AccountBalanceRow>> AllBalancesAsync(CancellationToken cancellationToken = default);
 }

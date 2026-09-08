@@ -43,6 +43,9 @@ namespace Money.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -82,12 +85,14 @@ namespace Money.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Path")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("IsDeleted = 0");
 
                     b.HasIndex("Kind", "Role");
 
                     b.HasIndex("ParentAccountId", "Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("IsDeleted = 0");
 
                     b.ToTable("Accounts", null, t =>
                         {
@@ -100,7 +105,6 @@ namespace Money.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Money.Domain.Ledger.Posting", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("AccountId")
@@ -192,11 +196,73 @@ namespace Money.Infrastructure.Persistence.Migrations
 
                     b.HasIndex(new[] { "SourceKind", "SourceId", "OccurredOn" }, "IX_Transactions_SourceKind_SourceId_OccurredOn");
 
+                    b.HasIndex(new[] { "ExternalRef" }, "UX_Transactions_Import_ExternalRef")
+                        .IsUnique()
+                        .HasFilter("SourceKind = 'Import' AND ExternalRef IS NOT NULL");
+
                     b.HasIndex(new[] { "SourceKind", "SourceId", "OccurredOn" }, "UX_Transactions_Source_Idempotency")
                         .IsUnique()
                         .HasFilter("SourceKind IN ('Recurring','Accrual') AND SourceId IS NOT NULL");
 
                     b.ToTable("Transactions", (string)null);
+                });
+
+            modelBuilder.Entity("Money.Domain.Recurrence.RecurringRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreditAccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("TEXT")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("DebitAccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("LastMaterialisedThrough")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Payee")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("RecurringRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecurringRules_AmountMinor_NonZero", "AmountMinor <> 0");
+                        });
                 });
 
             modelBuilder.Entity("Money.Infrastructure.Persistence.IdempotencyRecord", b =>
@@ -306,6 +372,63 @@ namespace Money.Infrastructure.Persistence.Migrations
                         .WithMany("Postings")
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Money.Domain.Recurrence.RecurringRule", b =>
+                {
+                    b.OwnsOne("Money.Domain.Recurrence.Schedule", "Schedule", b1 =>
+                        {
+                            b1.Property<Guid>("RecurringRuleId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int>("CustomDays")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("CustomDays");
+
+                            b1.Property<int>("CustomMonths")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("CustomMonths");
+
+                            b1.Property<int>("CustomYears")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("CustomYears");
+
+                            b1.Property<int?>("DayOfMonth")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("DayOfMonth");
+
+                            b1.Property<int?>("DayOfWeek")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("DayOfWeek");
+
+                            b1.Property<string>("Frequency")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Frequency");
+
+                            b1.Property<int>("Interval")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("Interval");
+
+                            b1.Property<int?>("Month")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("Month");
+
+                            b1.Property<int?>("WeekOfMonth")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("WeekOfMonth");
+
+                            b1.HasKey("RecurringRuleId");
+
+                            b1.ToTable("RecurringRules");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecurringRuleId");
+                        });
+
+                    b.Navigation("Schedule")
                         .IsRequired();
                 });
 

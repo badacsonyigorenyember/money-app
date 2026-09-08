@@ -4,6 +4,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Money.Application.Abstractions;
+using Money.Domain.Primitives;
 using Money.Domain.Time;
 using Money.Infrastructure.Persistence;
 using Money.TestSupport;
@@ -46,6 +48,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public FakeClock Clock { get; } = FakeClock.At(2026, 9, 1, 9, 0);
 
+    /// <summary>Set before the first request to stand in for the real bank feed.</summary>
+    public IBankFeed? BankFeed { get; init; }
+
+    private sealed class UnusableBankFeed : IBankFeed
+    {
+        public Task<Result<IReadOnlyList<BankTransaction>>> FetchBookedAsync(
+            DateOnly fromInclusive, DateOnly toInclusive, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "This test reached the bank feed. Set ApiFactory.BankFeed to a stub.");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -60,6 +73,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IClock>();
             services.AddSingleton<IClock>(Clock);
+
+            // No test may reach the real Enable Banking API. A factory with no BankFeed set still
+            // replaces it, so an accidental call fails loudly rather than going out over the wire.
+            services.RemoveAll<IBankFeed>();
+            services.AddSingleton(BankFeed ?? new UnusableBankFeed());
 
             using var scope = services.BuildServiceProvider().CreateScope();
             scope.ServiceProvider.GetRequiredService<MoneyDbContext>().Database.Migrate();

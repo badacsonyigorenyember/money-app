@@ -59,7 +59,7 @@ public sealed class RoundTripAcceptanceTests
         var groceries = categories!.Single(c => c.Name == "Groceries");
 
         // 2. Record an expense.
-        var expense = await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        var expense = await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 42.35m, categoryId = groceries.Id, accountId = bank.Id,
                   occurredOn = "2026-09-01", description = "Weekly shop" },
             CancellationToken.None);
@@ -162,18 +162,22 @@ public sealed class RoundTripAcceptanceTests
             .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
         category!.CurrencyCode.Should().Be("JPY");
 
-        await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 1235m, categoryId = category.Id, accountId = bank.Id,
                   occurredOn = "2026-09-01", description = "Ramen shop" },
             CancellationToken.None);
 
+        // The amount and its currency code are separate elements now, so these look for the
+        // rendered figure and the code independently rather than for one run of text.
         var transactionsHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
-        transactionsHtml.Should().Contain("1,235 JPY");
+        transactionsHtml.Should().Contain("1,235");
         transactionsHtml.Should().NotContain("1,235.00");
+        transactionsHtml.Should().Contain("JPY");
 
         var accountsHtml = await client.GetStringAsync("/accounts", CancellationToken.None);
-        accountsHtml.Should().Contain("8,765 JPY");
+        accountsHtml.Should().Contain("8,765");
         accountsHtml.Should().NotContain("8,765.00");
+        accountsHtml.Should().Contain("JPY");
     }
 
     [Fact]
@@ -245,7 +249,7 @@ public sealed class RoundTripAcceptanceTests
             new { name = "Snacks", kind = "Expense" }, CancellationToken.None))
             .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
 
-        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-expense",
+        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 9.99m, categoryId = category!.Id, accountId = bank!.Id,
                   occurredOn = "2026-09-01", description = "Oops" },
             CancellationToken.None))

@@ -40,6 +40,19 @@ public sealed class SettingsUseCaseTests : IDisposable
     }
 
     [Fact]
+    public async Task The_first_Monday_anchor_round_trips_through_the_database()
+    {
+        var update = new UpdateSettingsHandler(_harness.Settings, _harness.UnitOfWork);
+
+        (await update.HandleAsync(new UpdateSettingsRequest(
+            "EUR", "FirstMonday", 1, "Europe/Budapest", "Monday", 10), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        var read = await new GetSettingsHandler(_harness.Settings).HandleAsync(CancellationToken.None);
+        read.PeriodAnchor.Should().Be("FirstMonday");
+    }
+
+    [Fact]
     public async Task An_anchor_day_above_twenty_eight_is_rejected_with_the_explanation()
     {
         var result = await new UpdateSettingsHandler(_harness.Settings, _harness.UnitOfWork)

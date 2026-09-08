@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Money.Api\Money.Api.csproj" />
-    <ProjectReference Include="..\..\src\Money.Desktop\Money.Desktop.csproj" />
   </ItemGroup>
 
 </Project>

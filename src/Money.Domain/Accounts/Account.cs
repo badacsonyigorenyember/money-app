@@ -48,6 +48,15 @@ public sealed class Account
 
     public string CurrencyCode { get; private set; }
     public bool IsArchived { get; private set; }
+
+    /// <summary>
+    /// The account has been deleted by the user. A deleted account is gone from every list, every
+    /// picker and the archive itself, and can never come back. The row survives only where ledger
+    /// history already referred to it, so an old entry can still say what it was spent on; the
+    /// presentation layer marks that name as deleted. An account nothing ever referred to is
+    /// removed from the database outright and never reaches this state.
+    /// </summary>
+    public bool IsDeleted { get; private set; }
     public DateOnly? OpenedOn { get; private set; }
     public int SortOrder { get; private set; }
     public string? ColorHex { get; private set; }
@@ -101,7 +110,24 @@ public sealed class Account
 
     public Result Restore(DateTimeOffset nowUtc)
     {
+        if (IsDeleted) return DomainErrors.Account.AlreadyDeleted(Name);
+
         IsArchived = false;
+        UpdatedAtUtc = nowUtc;
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Deletes an archived account whose name ledger history still needs. Archiving first is
+    /// required: it is the step that takes the account out of circulation and gives the user a
+    /// chance to change their mind, and deleting is the one action here that cannot be undone.
+    /// </summary>
+    public Result Delete(DateTimeOffset nowUtc)
+    {
+        if (IsDeleted) return DomainErrors.Account.AlreadyDeleted(Name);
+        if (!IsArchived) return DomainErrors.Account.DeleteNeedsArchiveFirst(Name, IsCategory);
+
+        IsDeleted = true;
         UpdatedAtUtc = nowUtc;
         return Result.Ok();
     }

@@ -8,5 +8,20 @@ public interface ITransactionRepository
 
     Task<IReadOnlyList<Transaction>> ListAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Which of <paramref name="externalRefs"/> the ledger already holds. This is the cheap
+    /// pre-check that keeps a re-run quiet; the unique index is the guard that makes it correct.
+    /// </summary>
+    Task<IReadOnlyList<string>> ExistingExternalRefsAsync(
+        IReadOnlyCollection<string> externalRefs, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Which dates this rule has already posted on, voided ones included. The cheap pre-check
+    /// that keeps a second materialiser run quiet; UX_Transactions_Source_Idempotency is the
+    /// guard that makes it correct.
+    /// </summary>
+    Task<IReadOnlyList<DateOnly>> ExistingRecurringDatesAsync(
+        Guid ruleId, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken = default);
+
     void Add(Transaction transaction);
 }

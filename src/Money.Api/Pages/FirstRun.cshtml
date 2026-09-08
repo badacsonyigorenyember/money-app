@@ -1,64 +1,170 @@
 @page
 @model FirstRunModel
-@{ ViewData["Title"] = "Welcome"; }
+@{
+    ViewData["Title"] = "Welcome";
+    var zones = SettingsModel.TimeZoneIds.Contains(Model.TimeZoneId, StringComparer.Ordinal)
+        ? SettingsModel.TimeZoneIds
+        : SettingsModel.TimeZoneIds.Prepend(Model.TimeZoneId).ToArray();
+}
 
-<h1>Welcome</h1>
-<p class="muted">
-    Three quick choices and you can start recording. Everything is stored on this computer only:
-    your data is kept in your user folder, never beside the program and never online.
-</p>
+<div class="page-head">
+    <h1>Welcome</h1>
+    <p>
+        A few choices and you can start recording. Everything stays on this computer: your data is
+        kept in your user folder, never beside the program and never online.
+    </p>
+</div>
 
 @if (Model.ErrorMessage is not null)
 {
-    <p class="error">@Model.ErrorMessage</p>
+    <p class="notice notice--error" role="alert">@Model.ErrorMessage</p>
 }
 
-<form method="post">
-    <fieldset>
-        <legend>Currency</legend>
-        <label>Currency
-            <select asp-for="BaseCurrencyCode">
-                <option value="EUR">EUR</option>
-                <option value="HUF">HUF</option>
-                <option value="USD">USD</option>
-                <option value="GBP">GBP</option>
-            </select>
-        </label>
-    </fieldset>
+<form method="post" class="stack">
 
-    <fieldset>
-        <legend>When does your month start?</legend>
-        <label><input type="radio" asp-for="PeriodAnchor" value="CalendarMonth" checked />
-            On the 1st</label>
-        <label><input type="radio" asp-for="PeriodAnchor" value="DayOfMonth" />
-            On a payday: day
-            <input type="number" asp-for="PeriodAnchorDay" min="1" max="28" /></label>
-        <p class="muted">Days above 28 are not offered: not every month has them.</p>
-        <label>Time zone <input type="text" asp-for="TimeZoneId" /></label>
-        <label>Week starts on
-            <select asp-for="FirstDayOfWeek">
-                <option value="Monday">Monday</option>
-                <option value="Sunday">Sunday</option>
-            </select>
-        </label>
-    </fieldset>
+    <section class="section" style="margin-top:0">
+        <h2>Money</h2>
 
-    <fieldset>
-        <legend>Your first account</legend>
-        <label>Name <input type="text" asp-for="FirstAccountName" required /></label>
-        <label>Type
-            <select asp-for="FirstAccountRole">
-                <option value="Bank">Bank</option>
-                <option value="Cash">Cash</option>
-            </select>
-        </label>
-        <label>Starting balance <input type="number" asp-for="OpeningBalance" step="0.01" /></label>
-        <label>As of <input type="date" asp-for="OpenedOn" required /></label>
-    </fieldset>
+        <div class="card">
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="BaseCurrencyCode">Currency</label>
+                    <select asp-for="BaseCurrencyCode">
+                        @foreach (var code in SettingsModel.CurrencyCodes)
+                        {
+                            <option value="@code">@code</option>
+                        }
+                    </select>
+                    <span class="hint">Everything is recorded and totalled in this currency.</span>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    <label><input type="checkbox" asp-for="SeedStarterCategories" />
-        Create starter categories: Housing, Groceries, Eating out, Alcohol, Gaming, Transport,
-        Health, Subscriptions, Other. You can rename or remove any of them.</label>
+    <section class="section">
+        <h2>
+            When does your month start?
+            <small>This is the day your budgets and monthly totals roll over.</small>
+        </h2>
 
-    <button class="primary" type="submit">Start</button>
+        <fieldset class="card" style="border:1px solid var(--line); margin:0">
+            <legend class="visually-hidden">When does your month start?</legend>
+
+            <div class="choice-list">
+                <label class="choice">
+                    <input type="radio" asp-for="PeriodAnchor" value="CalendarMonth" />
+                    <span class="choice-title">On the 1st of the month</span>
+                    <span class="choice-note">
+                        The ordinary calendar month. September runs 1 September to 30 September.
+                    </span>
+                </label>
+
+                <label class="choice">
+                    <input type="radio" asp-for="PeriodAnchor" value="FirstMonday" />
+                    <span class="choice-title">On the first Monday of the month</span>
+                    <span class="choice-note">
+                        The month turns over on a Monday, so weeks never straddle two months.
+                    </span>
+                </label>
+
+                <label class="choice">
+                    <input type="radio" asp-for="PeriodAnchor" value="DayOfMonth" />
+                    <span class="choice-title">On the day I get paid</span>
+                    <span class="choice-note">
+                        Pick the day of the month your salary lands. Your month then runs payday to
+                        payday, which is how a budget is actually spent.
+                    </span>
+                    <span class="choice-extra field">
+                        <label asp-for="PeriodAnchorDay">Payday</label>
+                        <input type="number" asp-for="PeriodAnchorDay" min="1" max="28" />
+                        <span class="hint">1 to 28 — not every month has a 29th.</span>
+                    </span>
+                </label>
+            </div>
+        </fieldset>
+    </section>
+
+    <section class="section">
+        <h2>Weeks and time</h2>
+
+        <div class="card">
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="FirstDayOfWeek">Week starts on</label>
+                    <select asp-for="FirstDayOfWeek">
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
+
+                <div class="field span-2">
+                    <label asp-for="TimeZoneId">Time zone</label>
+                    <select asp-for="TimeZoneId">
+                        @foreach (var zone in zones)
+                        {
+                            <option value="@zone">@zone</option>
+                        }
+                    </select>
+                    <span class="hint">Decides what counts as "today" for a late-evening spend.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Your first account</h2>
+
+        <div class="card">
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="FirstAccountName">Name</label>
+                    <input type="text" asp-for="FirstAccountName" required />
+                </div>
+
+                <div class="field">
+                    <label asp-for="FirstAccountRole">Type</label>
+                    <select asp-for="FirstAccountRole">
+                        <option value="Bank">Bank</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label asp-for="OpeningBalance">Starting balance</label>
+                    <input type="number" asp-for="OpeningBalance" step="0.01" inputmode="decimal" />
+                    <span class="hint">What is in it right now.</span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="OpenedOn">As of</label>
+                    <input type="date" asp-for="OpenedOn" required />
+                    <span class="hint">The date that balance was true.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Starter categories</h2>
+
+        <div class="card card--sunk">
+            <label class="check">
+                <input type="checkbox" asp-for="SeedStarterCategories" />
+                <span>
+                    Create a set of starter categories: Housing, Groceries, Eating out, Alcohol,
+                    Gaming, Transport, Health, Subscriptions and Other. You can rename or remove
+                    any of them later.
+                </span>
+            </label>
+        </div>
+    </section>
+
+    <div class="form-actions" style="margin-top:1.5rem">
+        <button class="primary" type="submit">Start using Money</button>
+    </div>
 </form>
