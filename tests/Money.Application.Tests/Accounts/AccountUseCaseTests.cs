@@ -104,6 +104,31 @@ public sealed class AccountUseCaseTests : IDisposable
     }
 
     [Fact]
+    public async Task An_account_in_another_currency_gets_its_own_opening_balance_counterpart()
+    {
+        // A posting has to match its account's currency, so a forint opening balance cannot be
+        // booked against the euro counterpart - it would not balance in any currency either side
+        // recognises. One counterpart per currency is what makes the currency picker usable.
+        var euro = await Create.HandleAsync(
+            new CreateAccountRequest("Current", "Asset", "Bank", null, "EUR", 1000m, null),
+            CancellationToken.None);
+
+        var forint = await Create.HandleAsync(
+            new CreateAccountRequest("Budapest", "Asset", "Bank", null, "HUF", 400_000m, null),
+            CancellationToken.None);
+
+        euro.IsSuccess.Should().BeTrue(euro.Error?.Message);
+        forint.IsSuccess.Should().BeTrue(forint.Error?.Message);
+
+        (await _harness.Queries.BalanceOfAsync(forint.Value.Id, null)).Should().Be(40_000_000);
+
+        var counterparts = await _harness.Accounts.ListAsync(
+            Domain.Accounts.AccountKind.Equity, Domain.Accounts.AccountRole.OpeningBalance, true);
+
+        counterparts.Select(a => a.CurrencyCode).Should().BeEquivalentTo(["EUR", "HUF"]);
+    }
+
+    [Fact]
     public async Task An_opening_balance_never_shows_up_as_spending()
     {
         var account = (await Create.HandleAsync(

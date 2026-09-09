@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Money.Api.Infrastructure;
 using Money.Application.Abstractions;
 using Money.Application.Accounts;
@@ -16,6 +17,7 @@ using Money.Infrastructure.Identity;
 using Money.Infrastructure.Import;
 using Money.Infrastructure.Persistence;
 using Money.Infrastructure.Persistence.Repositories;
+using Money.Infrastructure.Rates;
 using Money.Infrastructure.Time;
 
 namespace Money.Api;
@@ -69,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<DatabaseInitializer>();
 
         AddBankFeed(services, configuration);
+        AddExchangeRates(services);
 
         services.AddScoped<CreateAccountHandler>();
         services.AddScoped<PatchAccountHandler>();
@@ -76,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<DeleteAccountHandler>();
         services.AddScoped<ListAccountsHandler>();
         services.AddScoped<GetAccountBalanceHandler>();
+        services.AddScoped<GetAccountOverviewHandler>();
         services.AddScoped<CreateCategoryHandler>();
         services.AddScoped<GetCategoryTreeHandler>();
         services.AddScoped<CreateTransactionHandler>();
@@ -97,6 +101,26 @@ public static class DependencyInjection
         services.AddScoped<RecurringMaterialiser>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Frankfurter needs no key and no configuration, so there is nothing to switch on: the only
+    /// thing worth deciding here is the lifetime. It is a singleton because the cache of fetched
+    /// rate tables lives on the instance, and a per-request client would fetch once per page.
+    /// </summary>
+    private static void AddExchangeRates(IServiceCollection services)
+    {
+        services.AddHttpClient(FrankfurterExchangeRates.ClientName, client =>
+        {
+            client.BaseAddress = new Uri("https://api.frankfurter.dev/");
+            client.Timeout = TimeSpan.FromSeconds(8);
+        });
+
+        services.AddSingleton<IExchangeRates>(provider => new FrankfurterExchangeRates(
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient(
+                FrankfurterExchangeRates.ClientName),
+            provider.GetRequiredService<IClock>(),
+            provider.GetRequiredService<ILogger<FrankfurterExchangeRates>>()));
     }
 
     /// <summary>

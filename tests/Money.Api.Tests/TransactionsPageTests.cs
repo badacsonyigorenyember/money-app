@@ -26,6 +26,38 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Changing_month_or_filters_keeps_the_reader_where_they_were()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var html = await client.GetStringAsync("/transactions", CancellationToken.None);
+
+        // Both controls sit above a long list, so a plain navigation would throw the reader back
+        // to the top of the page every time. Boosting them swaps <main> in place instead, and
+        // show:none is what stops htmx from scrolling once the swap is done.
+        foreach (var control in new[] { "month-nav", "toolbar" })
+        {
+            var tag = Regex.Match(html, @"<(?:nav|form)\b[^>]*\b" + control + @"\b[^>]*>").Value;
+
+            tag.Should().Contain("hx-boost", "the {0} must not reload the page", control);
+            tag.Should().Contain("show:none", "the {0} must not scroll after swapping", control);
+        }
+    }
+
+    [Fact]
+    public async Task An_empty_month_says_which_month_is_empty()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var html = await client.GetStringAsync("/transactions?month=2020-M01", CancellationToken.None);
+
+        // Stepping back through the months reaches this as often as a first run does, so it
+        // names the month rather than assuming the reader has never recorded anything.
+        html.Should().Contain("Nothing in January 2020");
+        html.Should().NotContain("Record your first spend");
+    }
+
+    [Fact]
     public async Task No_page_uses_accounting_vocabulary()
     {
         using var client = _factory.CreateApiClient();
@@ -80,6 +112,20 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
 
         html.Should().Contain("name=\"viewport\"");
         html.Should().Contain("manifest.webmanifest");
+    }
+
+    [Fact]
+    public async Task Asking_for_confirmation_does_not_depend_on_window_confirm()
+    {
+        using var client = _factory.CreateApiClient();
+
+        // hx-confirm goes through window.confirm, and a host can suppress that dialog - the
+        // Remove button then swallowed the click and did nothing at all. Every page carries the
+        // layout, so every hx-confirm anywhere in the app routes through this one <dialog>.
+        var html = await client.GetStringAsync("/transactions", CancellationToken.None);
+
+        html.Should().Contain("htmx:confirm", "the layout must intercept htmx's confirmation step");
+        html.Should().Contain("id=\"confirm\"", "and open its own dialog instead");
     }
 
     [Fact]
@@ -253,7 +299,7 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
 
         await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
             new { amount = 19.99m, categoryId = books!.Id, accountId = bank!.Id,
-                  occurredOn = "2026-08-01", description = "Novel " + suffix },
+                  occurredOn = "2026-09-01", description = "Novel " + suffix },
             CancellationToken.None);
 
         var pageHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
@@ -276,5 +322,66 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         rows.Should().Contain("Diesel " + suffix);
         rows.Should().Contain("Novel " + suffix,
             "the earlier entry is still history, whatever category was just used");
+    }
+
+    /// <summary>
+    /// The page shows one month at a time, and the arrows walk it. The month in the query string
+    /// has to reach the entry list as well as the chart, or paging back would redraw the chart
+    /// over a list that never moved.
+    /// </summary>
+    [Fact]
+    public async Task Paging_to_another_month_changes_which_entries_are_listed()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
+            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR" },
+            CancellationToken.None))
+            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+
+        var food = await (await client.PostAsJsonAsync("/api/v1/categories",
+            new { name = "Food " + suffix, kind = "Expense" }, CancellationToken.None))
+            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+
+        foreach (var (day, what) in new[] { ("2026-07-14", "Melon"), ("2026-09-01", "Bread") })
+        {
+            await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
+                new { amount = 5m, categoryId = food!.Id, accountId = bank!.Id,
+                      occurredOn = day, description = what + " " + suffix },
+                CancellationToken.None);
+        }
+
+        var thisMonth = await client.GetStringAsync("/transactions", CancellationToken.None);
+        thisMonth.Should().Contain("Bread " + suffix);
+        thisMonth.Should().NotContain("Melon " + suffix);
+
+        var july = await client.GetStringAsync("/transactions?month=2026-M07", CancellationToken.None);
+        july.Should().Contain("Melon " + suffix);
+        july.Should().NotContain("Bread " + suffix);
+    }
+
+    /// <summary>
+    /// A line floating in the middle of the box says how the month went but not how much money
+    /// there is. Zero stays on the axis whatever the balances are, so the height of the line is
+    /// readable as an amount rather than only as a shape.
+    /// </summary>
+    [Fact]
+    public async Task The_chart_keeps_zero_on_the_axis_however_far_the_balance_is_from_it()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
+            new { name = "Vault " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
+                  openingBalance = 4200m, openedOn = "2026-01-01" },
+            CancellationToken.None))
+            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+
+        var chart = await client.GetStringAsync(
+            $"/transactions?handler=Chart&picked=true&selected={bank!.Id}", CancellationToken.None);
+
+        chart.Should().Contain("grid--zero",
+            "a chart of a 4200 balance still has to show where zero is");
     }
 }

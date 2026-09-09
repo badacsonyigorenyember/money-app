@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Money.Application.Abstractions;
 using Money.Application.Presentation;
+using Money.Domain.Accounts;
 
 namespace Money.Infrastructure.Persistence;
 
@@ -49,6 +50,66 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
             .Where(x => !x.t.IsVoided)
             .GroupBy(x => x.p.AccountId)
             .Select(g => new AccountBalanceRow(g.Key, g.Sum(x => x.p.AmountMinor)))
+            .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// One transaction's income and expense legs belong to the asset account it touched, so the
+    /// grouping is by transaction first and account second. The window's legs are pulled and
+    /// grouped in memory rather than in SQL because the shape - carry a transaction's totals over
+    /// to its asset leg - is a self-join in SQL and three lines here.
+    ///
+    /// Only an entry with exactly one asset leg contributes: every template the user can reach
+    /// (expense, income, transfer, opening balance) has exactly one, and a hypothetical spend
+    /// split across two accounts would otherwise be counted in full against each of them.
+    /// Overstating a month's spending is the one wrong answer this page must not give.
+    ///
+    /// ponytail: a month of one person's postings is small; push it into SQL if that stops being true.
+    /// </summary>
+    public async Task<IReadOnlyList<AccountFlowRow>> FlowsAsync(
+        DateOnly fromInclusive, DateOnly toExclusive, CancellationToken cancellationToken = default)
+    {
+        var legs = await context.Postings
+            .Join(context.Transactions, p => p.TransactionId, t => t.Id, (p, t) => new { p, t })
+            .Join(context.Accounts, x => x.p.AccountId, a => a.Id, (x, a) => new { x.p, x.t, a })
+            .Where(x => !x.t.IsVoided
+                        && x.t.OccurredOn >= fromInclusive && x.t.OccurredOn < toExclusive)
+            .Select(x => new
+            {
+                x.p.TransactionId,
+                x.p.AccountId,
+                x.a.Kind,
+                x.p.AmountMinor
+            })
+            .ToListAsync(cancellationToken);
+
+        return legs
+            .GroupBy(leg => leg.TransactionId)
+            .Select(entry =>
+            {
+                var asset = entry.Where(l => l.Kind == AccountKind.Asset).ToList();
+                if (asset.Count != 1) return null;
+
+                return new AccountFlowRow(
+                    asset[0].AccountId,
+                    entry.Where(l => l.Kind == AccountKind.Income).Sum(l => l.AmountMinor),
+                    entry.Where(l => l.Kind == AccountKind.Expense).Sum(l => l.AmountMinor));
+            })
+            .OfType<AccountFlowRow>()
+            .GroupBy(row => row.AccountId)
+            .Select(g => new AccountFlowRow(
+                g.Key, g.Sum(r => r.IncomeMinor), g.Sum(r => r.ExpenseMinor)))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<AccountDayRow>> DailyNetAsync(
+        DateOnly fromInclusive, DateOnly toExclusive, CancellationToken cancellationToken = default) =>
+        await context.Postings
+            .Join(context.Transactions, p => p.TransactionId, t => t.Id, (p, t) => new { p, t })
+            .Where(x => !x.t.IsVoided
+                        && x.t.OccurredOn >= fromInclusive && x.t.OccurredOn < toExclusive)
+            .GroupBy(x => new { x.p.AccountId, x.t.OccurredOn })
+            .Select(g => new AccountDayRow(
+                g.Key.AccountId, g.Key.OccurredOn, g.Sum(x => x.p.AmountMinor)))
             .ToListAsync(cancellationToken);
 
     public async Task<int> SubtreeEntryCountAsync(

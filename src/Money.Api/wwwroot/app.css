@@ -485,6 +485,201 @@ tr.voided td:not(.actions) { text-decoration: line-through; }
 .toolbar .field { flex: 1 1 9rem; max-width: 22rem; }
 .toolbar .check { align-self: center; padding-bottom: 0.5rem; }
 
+/* --- where you stand ----------------------------------------------------- */
+
+/* One chart for the month: a balance line per account, and a dotted rule where
+   each of them started. Colour means "which account" here and nowhere else in
+   the app, so the six series colours are defined here and used only inside it. */
+
+:root {
+    --s0: #4a7fb5;
+    --s1: #2f6b4f;
+    --s2: #a3572b;
+    --s3: #7a4a86;
+    --s4: #b0813a;
+    --s5: #9d3f4e;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --s0: #79b0e0;
+        --s1: #6fcf97;
+        --s2: #e39a6b;
+        --s3: #c297d6;
+        --s4: #d9a441;
+        --s5: #e5786b;
+    }
+}
+
+/* Sticky, because the arrows are the one control a reader reaches for repeatedly and they sit
+   above a list that can run for screens. It also takes the sting out of the page getting
+   shorter: a month with fewer entries is a shorter document, so a reader near the bottom is
+   pushed up by the browser whatever we do - but the control they want is still under the
+   cursor. --topbar-h is measured in _Layout.cshtml: the bar above wraps to two rows when the
+   window is narrow, so its height is not a number this file can know. */
+.month-nav {
+    position: sticky;
+    top: var(--topbar-h, 3.6rem);
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    /* All padding, no margin: the background has to reach the line where the list slides
+       underneath, or the first row of the toolbar gets sliced in half mid-letter. */
+    margin: 0;
+    padding: 0.5rem 0 1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+}
+
+.month-nav strong { font-family: var(--display); font-size: 1.05rem; min-width: 10ch; }
+
+.month-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.month-step:hover { border-color: var(--brass); color: var(--brass); }
+.month-step.is-disabled { opacity: 0.35; pointer-events: none; }
+
+.picker { margin: 0 0 1rem; }
+.picker fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.picker legend { float: left; padding: 0 0.6rem 0 0; font-size: 0.8125rem; color: var(--ink-soft); }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.chip:has(input:checked) { border-color: var(--brass); background: var(--brass-lift); color: var(--brass); }
+.chip:has(input:focus-visible) { outline: 2px solid var(--brass); outline-offset: 2px; }
+.chip--off { opacity: 0.5; cursor: not-allowed; }
+.chip-ccy { color: var(--ink-faint); font-size: 0.8125em; }
+
+/* Below about 30rem the axis amounts scale down into illegibility, so the chart
+   stops shrinking and scrolls sideways instead - the same bargain the tables make. */
+.chart-wrap { overflow-x: auto; }
+
+.lines {
+    display: block;
+    width: 100%;
+    min-width: 30rem;
+    height: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 0.5rem 0;
+}
+
+.grid { stroke: var(--line); stroke-width: 1; }
+.grid--zero { stroke: var(--line-strong); stroke-width: 1.5; }
+.axis-amount, .axis-day { font: 10px var(--figures); fill: var(--ink-faint); }
+
+/* The run is where the account went; the dotted rule is where it started, so the
+   gap between them is the month's answer without anyone doing arithmetic. */
+.run { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.started { stroke: var(--series); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.6; }
+.head { fill: var(--series); }
+
+/* A series names its colour in a custom property rather than setting `color`, so
+   the marks and the table swatch can both reach for it without the row's text
+   inheriting it too. */
+.series--0 { --series: var(--s0); }
+.series--1 { --series: var(--s1); }
+.series--2 { --series: var(--s2); }
+.series--3 { --series: var(--s3); }
+.series--4 { --series: var(--s4); }
+.series--5 { --series: var(--s5); }
+.series--off { --series: var(--line-strong); }
+
+/* A node is one account on one day. It stays invisible until the pointer finds
+   it, because thirty-one of them times six lines would turn the chart into a
+   bead curtain; the hit circle is what makes a 2.5-unit dot findable at all. */
+.pt .dot { fill: var(--series); opacity: 0; }
+.pt .hit { fill: transparent; }
+.pt:hover .dot { opacity: 1; }
+
+/* The little window is HTML inside the SVG, so two sizes of text stack and wrap
+   like text rather than like hand-placed <text> nodes. It never takes the
+   pointer: capturing it would pull hover off the node it belongs to and flicker. */
+.tip { visibility: hidden; overflow: visible; pointer-events: none; }
+.pt:hover .tip { visibility: visible; }
+
+.tip-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    font: 11px/1.35 var(--ui);
+    color: var(--ink);
+}
+
+.tip-name { font-weight: 600; }
+.tip-main { font-family: var(--figures); font-size: 13px; font-variant-numeric: tabular-nums; }
+.tip-unit { color: var(--ink-faint); font-size: 0.8125em; }
+
+/* What the account itself holds, kept smaller than the converted figure above
+   it: the base currency is the answer, this is the source of it. */
+.tip-native, .tip-day { font-size: 9.5px; color: var(--ink-faint); }
+.tip-native { font-family: var(--figures); }
+
+/* The swatch is the legend: it ties a table row to its line, so the chart needs
+   no legend of its own. An unticked account keeps its row and loses its colour. */
+.swatch {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    margin-right: 0.5rem;
+    vertical-align: baseline;
+    background: var(--series, var(--line-strong));
+}
+
+/* The account's own name is a name, not a column heading, so it opts out of the
+   uppercase small-caps that every other `th` in the app wears. */
+.figures-table tbody th {
+    font: 500 0.9375rem/1.4 var(--ui);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.figures-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+/* The series colour is carried on the row for the swatch's benefit only; every
+   cell states its own so a line's colour never leaks into the figures. */
+.figures-table th, .figures-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); color: var(--ink); }
+.figures-table thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); font-weight: 600; }
+.figures-table tbody th { text-align: left; color: var(--ink); }
+.figures-table .amount { text-align: right; font-family: var(--figures); font-variant-numeric: tabular-nums; }
+.figures-table .in { color: var(--sage); }
+.figures-table .out { color: var(--rust); }
+.figures-table .kept { color: var(--brass); }
+.figures-table .strong { font-weight: 600; }
+.figures-table .ccy { margin-left: 0.35em; font-size: 0.8125em; color: var(--ink-faint); }
+
+.figures-table th:first-child, .figures-table td:first-child { white-space: nowrap; }
+
 /* --- misc --------------------------------------------------------------- */
 
 .muted { color: var(--ink-soft); }
@@ -686,3 +881,19 @@ body:has(.sheet[open]) .fab:not(.fab--close) { opacity: 0; }
     .sheet-panel > h2 { margin: 1.1rem; }
     .sheet-panel > form { padding: 0 1.1rem 1.25rem; }
 }
+
+/* The one confirmation dialog, opened by the htmx:confirm handler in _Layout.cshtml. */
+.confirm {
+    width: min(26rem, calc(100vw - 2.5rem));
+    padding: 1.4rem 1.5rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    max-height: calc(100dvh - 2.5rem);
+    overflow: hidden auto;
+    box-shadow: 0 24px 60px -24px rgb(33 27 40 / 60%);
+}
+
+.confirm::backdrop { background-color: rgb(23 19 32 / 55%); }
+.confirm p { margin: 0 0 1.25rem; }

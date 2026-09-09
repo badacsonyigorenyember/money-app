@@ -94,7 +94,13 @@ public sealed class Transaction
 
             if (draft.Amount.IsZero) return DomainErrors.Transaction.ZeroAmount();
 
-            if (!string.Equals(draft.Amount.Currency.Code, account.CurrencyCode, StringComparison.Ordinal))
+            // A real account holds one currency and only that one. A category does not hold
+            // money at all - it names what the money was for - so the same category has to take
+            // a EUR card and a HUF account alike, and its own code says nothing about what may
+            // be filed under it. Pinning it too would leave every account outside the base
+            // currency unusable, since categories are created in the base currency.
+            if (!account.IsCategory
+                && !string.Equals(draft.Amount.Currency.Code, account.CurrencyCode, StringComparison.Ordinal))
                 return DomainErrors.Transaction.CurrencyMismatchWithAccount(account.Name);
 
             postings.Add(new Posting(

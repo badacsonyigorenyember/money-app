@@ -12,6 +12,7 @@ public sealed class AccountsModel(
     CreateAccountHandler create,
     ArchiveAccountHandler archive,
     DeleteAccountHandler delete,
+    ISettingsRepository settingsRepository,
     ILedgerQueries queries) : PageModel
 {
     /// <summary><paramref name="Entries"/> is only counted for archived rows: it is what decides
@@ -24,14 +25,18 @@ public sealed class AccountsModel(
     public string? ErrorMessage { get; private set; }
     public string? Message { get; private set; }
 
+    /// <summary>What a new account is offered first, and what the chart reads in.</summary>
+    public string BaseCurrencyCode { get; private set; } = "EUR";
+
     public async Task OnGetAsync(CancellationToken cancellationToken) => await LoadAsync(cancellationToken);
 
     public async Task<IActionResult> OnPostCreateAsync(
-        [FromForm] string name, [FromForm] string role, [FromForm] decimal? openingBalance,
-        [FromForm] DateOnly? openedOn, CancellationToken cancellationToken)
+        [FromForm] string name, [FromForm] string role, [FromForm] string? currencyCode,
+        [FromForm] decimal? openingBalance, [FromForm] DateOnly? openedOn,
+        CancellationToken cancellationToken)
     {
         var result = await create.HandleAsync(
-            new CreateAccountRequest(name, "Asset", role, null, null, openingBalance, openedOn),
+            new CreateAccountRequest(name, "Asset", role, null, currencyCode, openingBalance, openedOn),
             cancellationToken);
 
         if (result.IsFailure) ErrorMessage = result.Error!.Message;
@@ -75,6 +80,9 @@ public sealed class AccountsModel(
 
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
+        BaseCurrencyCode = await BaseCurrencyResolver.BaseCurrencyCodeAsync(
+            settingsRepository, cancellationToken);
+
         // Only the accounts a person thinks of as accounts. The Equity/OpeningBalance account is
         // bookkeeping and never appears here.
         var visible = (await list.HandleAsync("Asset", null, includeArchived: true, cancellationToken))

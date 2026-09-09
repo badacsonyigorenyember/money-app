@@ -141,6 +141,29 @@ public sealed class TransactionCreationTests
     }
 
     [Fact]
+    public void A_category_takes_whatever_currency_the_account_it_is_used_with_holds()
+    {
+        // A category is a label for where money went, not a pot that holds it. The same "Food"
+        // has to serve a EUR card and a HUF account alike, so only the real account pins the
+        // currency of a leg; the category's own code says nothing about what can be filed under
+        // it. Without this a HUF account cannot be spent from at all, because every category is
+        // created in the base currency.
+        var huf = NewAccount("Budapest", AccountKind.Asset, AccountRole.Bank, Currency.Huf);
+        var food = NewAccount("Food", AccountKind.Expense, AccountRole.Category);
+
+        var result = Transaction.Create(
+            Guid.CreateVersion7(Now), Today, "Lunch", null, TransactionSourceKind.Manual, null,
+            [
+                new PostingDraft(food.Id, MoneyValue.Of(250000, Currency.Huf)),
+                new PostingDraft(huf.Id, MoneyValue.Of(-250000, Currency.Huf))
+            ],
+            Lookup(huf, food), Now);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Postings.Should().OnlyContain(p => p.CurrencyCode == "HUF");
+    }
+
+    [Fact]
     public void An_entry_whose_currency_differs_from_its_account_is_rejected()
     {
         var bank = NewAccount("Current", AccountKind.Asset, AccountRole.Bank);

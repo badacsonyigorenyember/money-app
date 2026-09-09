@@ -1,0 +1,263 @@
+@model Money.Api.Pages.TransactionsModel
+@using System.Globalization
+@using Money.Application.Contracts
+@using Money.Application.Presentation
+
+@*
+    One chart, one month: a running balance line per account over the days of the month, starting
+    from what each account carried in from the month before. That carried-in amount is also drawn
+    as a dotted rule across the chart, so "am I ahead of where I started" is a glance rather than
+    a subtraction.
+
+    The whole chart is drawn in the base currency from settings. An account kept in another
+    currency is converted by its RateToBase for the drawing only - the figures table below and the
+    smaller line in each node still say what the account itself holds.
+
+    Drawn by hand rather than by a charting library because the app has to look like itself with
+    the network switched off. Every amount here is already oriented for a reader by
+    DisplayAmountMapper - nothing in this file negates anything.
+*@
+
+@functions {
+    // The drawing box, in the chart's own units. The left gutter holds the amounts.
+    const decimal Left = 62m, Right = 632m, Top = 14m, Bottom = 208m, Baseline = 228m;
+
+    // The node's little window, and the point past which it opens to the left instead of running
+    // off the right-hand edge.
+    const decimal TipWidth = 168m, TipHeight = 68m, TipFlipAt = 440m;
+
+    /// <summary>SVG coordinates are not localised. A Hungarian decimal comma would end the attribute.</summary>
+    static string N(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>Which day numbers get a label. Every day would be a smear at this width.</summary>
+    static bool IsLabelled(int day, int lastDay) =>
+        day == 1 || day == lastDay || (day % 5 == 0 && day + 2 < lastDay);
+
+    /// <summary>
+    /// The nearest 1, 2 or 5 (times a power of ten) at or above <paramref name="rough"/>. Dividing
+    /// the range into four equal parts gives axis labels like -84.23; rounding the step first
+    /// gives -80, -60, -40, which is what a person can actually read a balance against.
+    /// </summary>
+    static decimal NiceStep(decimal rough)
+    {
+        if (rough <= 0m) return 1m;
+
+        var magnitude = (decimal)Math.Pow(10, Math.Floor(Math.Log10((double)rough)));
+        var normalised = rough / magnitude;
+
+        return magnitude * (normalised <= 1m ? 1m : normalised <= 2m ? 2m : normalised <= 5m ? 5m : 10m);
+    }
+}
+
+@{
+    var month = Model.Overview;
+    var charted = Model.Charted;
+
+    // A drawn account always has a rate; the fallback is only so this expression cannot throw.
+    decimal InBase(AccountMonthDto account, decimal amount) => amount * (account.RateToBase ?? 1m);
+
+    // The axis spans every drawn line and every drawn baseline, so no part of either can fall off
+    // the top or bottom of the box.
+    var plotted = charted
+        .SelectMany(a => a.Days.Select(d => InBase(a, d.Balance)).Append(InBase(a, a.OpeningBalance)))
+        .DefaultIfEmpty(0m)
+        .ToArray();
+
+    // Zero is always on the axis. A line floating between 4,180 and 4,220 says how the month went
+    // but not how much money there is; anchored, the height of the line is itself the amount.
+    var seen = Math.Max(plotted.Max(), 0m);
+    var lowest = Math.Min(plotted.Min(), 0m);
+
+    // A flat month would otherwise divide by zero; give it a band to sit in the middle of.
+    if (seen == lowest) { seen += 1m; lowest -= 1m; }
+
+    // Round the axis outwards to whole steps, so the labels are amounts a person recognises and
+    // zero, being a multiple of every step, always lands on a line of its own.
+    var tick = NiceStep((seen - lowest) / 4m);
+    var high = Math.Ceiling(seen / tick) * tick;
+    var low = Math.Floor(lowest / tick) * tick;
+    if (high == low) { high = low + tick; }
+
+    var span = high - low;
+    var step = (Right - Left) / Math.Max(month.DayCount, 1);
+
+    decimal ValueAt(decimal value) => Top + ((high - value) / span * (Bottom - Top));
+    decimal DayAt(int index) => Left + (index * step);
+}
+
+<div id="monthChart">
+    <form class="picker" hx-get="/transactions?handler=Chart" hx-target="#monthChart"
+          hx-swap="outerHTML" hx-trigger="change" hx-vals='{"picked":"true"}'>
+        <input type="hidden" name="month" value="@month.PeriodKey" />
+
+        <fieldset>
+            <legend>Which accounts?</legend>
+            @foreach (var account in month.Accounts)
+            {
+                var foreign = account.CurrencyCode != month.BaseCurrencyCode;
+                var drawable = account.RateToBase is not null;
+
+                var reason = drawable
+                    ? foreign ? $"Shown in {month.BaseCurrencyCode} at today's rate." : null
+                    : $"No {account.CurrencyCode} to {month.BaseCurrencyCode} rate yet, so it "
+                      + "cannot share this scale. Check the connection and reload.";
+
+                <label class="chip @(drawable ? null : "chip--off")" title="@reason">
+                    <input type="checkbox" name="selected" value="@account.AccountId"
+                           checked="@charted.Any(a => a.AccountId == account.AccountId)"
+                           disabled="@(!drawable)" />
+                    <span>@account.Name</span>
+                    @if (foreign)
+                    {
+                        <span class="chip-ccy">(@account.CurrencyCode)</span>
+                    }
+                </label>
+            }
+        </fieldset>
+    </form>
+
+    @if (charted.Count == 0)
+    {
+        <div class="empty">
+            <strong>Nothing to draw</strong>
+            <p>Tick an account above to see how @month.Label went for it.</p>
+        </div>
+    }
+    else
+    {
+        <div class="chart-wrap">
+        <svg class="lines" viewBox="0 0 640 244" role="img"
+             aria-label="Balance through @month.Label, one line per account, in @month.BaseCurrencyCode">
+            <desc>
+                @string.Join("; ", charted.Select(a =>
+                    $"{a.Name} started {CurrencyFormat.Format(InBase(a, a.OpeningBalance), month.BaseCurrencyCode)} " +
+                    $"and stands at {CurrencyFormat.Format(InBase(a, a.ClosingBalance), month.BaseCurrencyCode)} " +
+                    month.BaseCurrencyCode))
+            </desc>
+
+            @* Amounts up the left edge, and the rules that go with them. Zero gets a heavier
+               one: it is the line that changes what a balance means. *@
+            @for (var value = low; value <= high; value += tick)
+            {
+                var y = ValueAt(value);
+
+                <line class="grid @(value == 0m ? "grid--zero" : null)"
+                      x1="@N(Left)" x2="@N(Right)" y1="@N(y)" y2="@N(y)" />
+                <g>
+                    <text class="axis-amount" x="@N(Left - 8m)" y="@N(y + 3m)" text-anchor="end">
+                        @CurrencyFormat.Format(value, month.BaseCurrencyCode)
+                    </text>
+                </g>
+            }
+
+            @for (var day = 1; day <= month.DayCount; day++)
+            {
+                if (!IsLabelled(day, month.DayCount)) { continue; }
+
+                <g>
+                    <text class="axis-day" text-anchor="middle"
+                          x="@N(DayAt(day))" y="@N(Baseline)">@day</text>
+                </g>
+            }
+
+            @for (var i = 0; i < charted.Count; i++)
+            {
+                var account = charted[i];
+                var openY = ValueAt(InBase(account, account.OpeningBalance));
+
+                // The line starts at the left edge on the carried-in amount, before day one has
+                // moved anything, so its first segment is the first day's movement.
+                var points = string.Join(" ",
+                    new[] { $"{N(Left)},{N(openY)}" }.Concat(
+                        account.Days.Select((d, index) =>
+                            $"{N(DayAt(index + 1))},{N(ValueAt(InBase(account, d.Balance)))}")));
+
+                <g class="series series--@(i % 6)">
+                    <line class="started" x1="@N(Left)" x2="@N(Right)"
+                          y1="@N(openY)" y2="@N(openY)" />
+                    <polyline class="run" points="@points" />
+                    <circle class="head" r="3"
+                            cx="@N(DayAt(account.Days.Count))"
+                            cy="@N(ValueAt(InBase(account, account.ClosingBalance)))" />
+                </g>
+            }
+
+            @* Every node in the chart, drawn after all the lines: SVG has no z-index, so a node
+               grouped with its own line would open its window underneath the next line along. *@
+            @for (var i = 0; i < charted.Count; i++)
+            {
+                var account = charted[i];
+                var foreign = account.CurrencyCode != month.BaseCurrencyCode;
+
+                <g class="series--@(i % 6)">
+                    @foreach (var (day, index) in account.Days.Select((d, n) => (d, n)))
+                    {
+                        var x = DayAt(index + 1);
+                        var y = ValueAt(InBase(account, day.Balance));
+
+                        <g class="pt">
+                            <circle class="dot" r="2.5" cx="@N(x)" cy="@N(y)" />
+                            <circle class="hit" r="9" cx="@N(x)" cy="@N(y)" />
+
+                            <foreignObject class="tip" width="@N(TipWidth)" height="@N(TipHeight)"
+                                           x="@N(x > TipFlipAt ? x - TipWidth - 10m : x + 10m)"
+                                           y="@N(Math.Clamp(y - TipHeight / 2m, 2m, Bottom - TipHeight))">
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="tip-box">
+                                    <span class="tip-name">@account.Name@(foreign ? $" ({account.CurrencyCode})" : "")</span>
+                                    <span class="tip-main">
+                                        @CurrencyFormat.Format(InBase(account, day.Balance), month.BaseCurrencyCode)
+                                        <span class="tip-unit">@month.BaseCurrencyCode</span>
+                                    </span>
+                                    @if (foreign)
+                                    {
+                                        <span class="tip-native">
+                                            @CurrencyFormat.Format(day.Balance, account.CurrencyCode)
+                                            @account.CurrencyCode
+                                        </span>
+                                    }
+                                    <span class="tip-day">@day.Day.ToString("d MMMM", CultureInfo.CurrentCulture)</span>
+                                </div>
+                            </foreignObject>
+                        </g>
+                    }
+                </g>
+            }
+        </svg>
+        </div>
+    }
+
+    <div class="table-wrap figures-wrap">
+    <table class="figures-table">
+        <caption class="visually-hidden">Each account through @month.Label</caption>
+        <thead>
+            <tr>
+                <th scope="col">Account</th>
+                <th scope="col" class="amount">Started</th>
+                <th scope="col" class="amount">In</th>
+                <th scope="col" class="amount">Out</th>
+                <th scope="col" class="amount">Kept</th>
+                <th scope="col" class="amount">Now</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var account in month.Accounts)
+        {
+            var drawn = charted.ToList().FindIndex(a => a.AccountId == account.AccountId);
+
+            <tr class="@(drawn >= 0 ? $"series--{drawn % 6}" : "series--off")">
+                <th scope="row" class="primary-cell">
+                    <span class="swatch" aria-hidden="true"></span>@account.Name
+                </th>
+                <td class="amount">@CurrencyFormat.Format(account.OpeningBalance, account.CurrencyCode)</td>
+                <td class="amount in">@CurrencyFormat.Format(account.MoneyIn, account.CurrencyCode)</td>
+                <td class="amount out">@CurrencyFormat.Format(account.MoneyOut, account.CurrencyCode)</td>
+                <td class="amount kept">@CurrencyFormat.Format(account.Kept, account.CurrencyCode)</td>
+                <td class="amount strong">
+                    @CurrencyFormat.Format(account.ClosingBalance, account.CurrencyCode)<span class="ccy">@account.CurrencyCode</span>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    </div>
+</div>

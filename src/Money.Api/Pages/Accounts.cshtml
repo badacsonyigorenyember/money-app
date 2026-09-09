@@ -30,6 +30,20 @@
             </div>
 
             <div class="field">
+                <label for="a-currency">Currency</label>
+                <select id="a-currency" name="currencyCode">
+                    @foreach (var code in SettingsModel.CurrencyCodes)
+                    {
+                        <option value="@code" selected="@(code == Model.BaseCurrencyCode)">@code</option>
+                    }
+                </select>
+                <span class="hint">
+                    What this account is actually kept in. Totals and the chart still read in
+                    @Model.BaseCurrencyCode, converted at the day's rate.
+                </span>
+            </div>
+
+            <div class="field">
                 <label for="a-balance">Starting balance</label>
                 <input id="a-balance" type="number" name="openingBalance" step="0.01"
                        inputmode="decimal" placeholder="0.00" />

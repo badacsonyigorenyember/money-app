@@ -18,6 +18,7 @@ public sealed class TransactionsModel(
     VoidTransactionHandler voidTransaction,
     GetCategoryTreeHandler categories,
     ListAccountsHandler accounts,
+    GetAccountOverviewHandler overview,
     ImportBankTransactionsHandler importBank,
     CreateRecurringRuleHandler createRule,
     ListRecurringRulesHandler listRules,
@@ -28,6 +29,8 @@ public sealed class TransactionsModel(
 {
     public new TransactionPageDto Page { get; private set; } = new([], null);
     public IReadOnlyList<AccountDto> Accounts { get; private set; } = [];
+    public MonthOverviewDto Overview { get; private set; } =
+        new("", "", default, default, 0, "EUR", "", null, []);
     public IReadOnlyList<CategoryNodeDto> SpendCategories { get; private set; } = [];
     public IReadOnlyList<CategoryNodeDto> IncomeCategories { get; private set; } = [];
     public IReadOnlyList<RecurringRuleDto> Rules { get; private set; } = [];
@@ -43,11 +46,41 @@ public sealed class TransactionsModel(
     /// </summary>
     public bool RulesOutOfBand { get; private set; }
 
+    /// <summary>
+    /// Which month the page is showing, as a period key such as <c>2026-M09</c>. One value drives
+    /// both the chart and the entry list, so the arrows above the list can never leave the two
+    /// looking at different months. Absent means the month in progress.
+    /// </summary>
     // FromQuery pins these to the query string. Without it they would also bind from a posted
     // form, and the quick-add form's own categoryId and accountId fields would silently become
     // filters - so recording one thing would hide everything else from the refreshed list.
-    [BindProperty(SupportsGet = true), FromQuery] public DateOnly? From { get; set; }
-    [BindProperty(SupportsGet = true), FromQuery] public DateOnly? To { get; set; }
+    [BindProperty(SupportsGet = true), FromQuery] public string? Month { get; set; }
+
+    /// <summary>
+    /// Which accounts to draw. Ticking a box re-asks the server rather than hiding a line in the
+    /// browser, because the y axis is shared: hiding the largest account client-side would leave
+    /// the rest squashed against the floor at a scale nothing on screen still needs.
+    /// </summary>
+    [BindProperty(SupportsGet = true), FromQuery] public Guid[]? Selected { get; set; }
+
+    /// <summary>
+    /// Set by the picker itself, so "every box unticked" can be told apart from "the picker has
+    /// not been touched" - both of which arrive as an absent <see cref="Selected"/>.
+    /// </summary>
+    [BindProperty(SupportsGet = true), FromQuery] public bool Picked { get; set; }
+
+    /// <summary>
+    /// The accounts actually drawn: those ticked, converted to the ledger's base currency so one
+    /// shared axis can carry all of them. An account with no rate to convert by - an unquoted
+    /// currency, or no network yet - keeps its row in the figures below and stays off the chart,
+    /// because a line drawn without a rate would be a number nobody has.
+    /// </summary>
+    public IReadOnlyList<AccountMonthDto> Charted =>
+        Overview.Accounts
+            .Where(a => a.RateToBase is not null)
+            .Where(a => !Picked || (Selected ?? []).Contains(a.AccountId))
+            .ToArray();
+
     [BindProperty(SupportsGet = true), FromQuery] public Guid? AccountId { get; set; }
     [BindProperty(SupportsGet = true), FromQuery] public Guid? CategoryId { get; set; }
     [BindProperty(SupportsGet = true), FromQuery] public string? Q { get; set; }
@@ -59,6 +92,13 @@ public sealed class TransactionsModel(
         // this morning's salary. A run with nothing due writes nothing.
         await materialiser.RunAsync(cancellationToken);
         await LoadAsync(cancellationToken);
+    }
+
+    /// <summary>Redraws the chart alone when the account picker changes.</summary>
+    public async Task<IActionResult> OnGetChartAsync(CancellationToken cancellationToken)
+    {
+        await LoadAsync(cancellationToken);
+        return Partial("Shared/_AccountOverview", this);
     }
 
     public async Task<IActionResult> OnPostQuickAddAsync(
@@ -220,8 +260,15 @@ public sealed class TransactionsModel(
         // DateTime.Today - which would put a late-evening expense in yesterday.
         Today = await TodayResolver.TodayAsync(settingsRepository, clock, cancellationToken);
 
+        // Resolved first: the chart and the entry list below it read the same month, and it is the
+        // overview that decides which month a key means (and what "the month in progress" is).
+        Overview = await overview.HandleAsync(Month, cancellationToken);
+        Month = Overview.PeriodKey;
+
         Page = await list.HandleAsync(
-            new TransactionQuery(From, To, AccountId, CategoryId, Q, IncludeVoided, null, 50),
+            new TransactionQuery(
+                Overview.Start, Overview.EndInclusive,
+                AccountId, CategoryId, Q, IncludeVoided, null, 200),
             cancellationToken);
 
         Accounts = (await accounts.HandleAsync(null, null, false, cancellationToken))

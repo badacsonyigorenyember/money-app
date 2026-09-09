@@ -77,6 +77,31 @@ public sealed class SugarUseCaseTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task A_quick_expense_from_a_foreign_currency_account_is_recorded_in_that_currency()
+    {
+        // The reported bug: categories are created in the base currency, so with the rule that
+        // pinned a category's own code, every account outside it - a HUF account here - refused
+        // every category with "The amount's currency does not match the currency of 'Food'".
+        var accounts = new CreateAccountHandler(_harness.Accounts, _harness.Transactions,
+                                                _harness.Settings, _harness.UnitOfWork, _harness.Clock);
+        var budapest = (await accounts.HandleAsync(new CreateAccountRequest(
+            "Budapest", "Asset", "Bank", null, "HUF", 400_000m, new DateOnly(2026, 1, 1)),
+            CancellationToken.None)).Value;
+
+        var result = await QuickEntry.HandleAsync(
+            new QuickEntryRequest(2_500m, _food.Id, budapest.Id, null, null, null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Lines.Should().OnlyContain(line => line.CurrencyCode == "HUF");
+
+        // Both legs land in HUF: the account's balance drops by the amount, and the EUR-born
+        // category records the same amount rather than converting or refusing it.
+        (await _harness.Queries.BalanceOfAsync(budapest.Id, null)).Should().Be(39_750_000);
+        (await _harness.Queries.BalanceOfAsync(_food.Id, null)).Should().Be(250_000);
+    }
+
+    [Fact]
     public async Task A_quick_expense_against_a_non_category_is_rejected()
     {
         (await QuickEntry.HandleAsync(

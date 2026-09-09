@@ -4,6 +4,18 @@ namespace Money.Application.Abstractions;
 
 public sealed record AccountBalanceRow(Guid AccountId, long BalanceMinor);
 
+/// <summary>
+/// What flowed through one asset account over a window: the Income and Expense legs of every
+/// transaction that also touched it, in stored minor units (Income negative, Expense positive).
+/// A transfer between two accounts has neither leg, so it contributes zero to both - which is
+/// what makes I12 structural here rather than a filter someone has to remember.
+/// </summary>
+public sealed record AccountFlowRow(Guid AccountId, long IncomeMinor, long ExpenseMinor);
+
+/// <summary>How much one account moved on one day, in stored minor units. Days on which nothing
+/// happened have no row at all - a running balance carries the previous day forward.</summary>
+public sealed record AccountDayRow(Guid AccountId, DateOnly OccurredOn, long DeltaMinor);
+
 public sealed record TransactionQuery(
     DateOnly? From,
     DateOnly? To,
@@ -55,4 +67,21 @@ public interface ILedgerQueries
     Task<int> SubtreeEntryCountAsync(string path, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<AccountBalanceRow>> AllBalancesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Money in and money out per asset account, over transactions dated in
+    /// [<paramref name="fromInclusive"/>, <paramref name="toExclusive"/>). The window comes from
+    /// PeriodResolver; nothing here does date arithmetic of its own.
+    /// </summary>
+    Task<IReadOnlyList<AccountFlowRow>> FlowsAsync(
+        DateOnly fromInclusive, DateOnly toExclusive, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every day on which an account moved, over [<paramref name="fromInclusive"/>,
+    /// <paramref name="toExclusive"/>). This is the account's own postings summed, not its income
+    /// and expense legs, so a transfer in or out is part of the day's movement - which is what a
+    /// balance line has to show.
+    /// </summary>
+    Task<IReadOnlyList<AccountDayRow>> DailyNetAsync(
+        DateOnly fromInclusive, DateOnly toExclusive, CancellationToken cancellationToken = default);
 }

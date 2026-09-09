@@ -80,14 +80,26 @@ public sealed class CreateAccountHandler(
         return Result<AccountDto>.Ok(AccountMapper.ToDto(account));
     }
 
+    /// <summary>
+    /// One opening-balance counterpart per currency. A posting has to match its account's
+    /// currency, so a forint account's opening balance cannot be booked against a euro
+    /// counterpart - it needs its own, and the currency goes in the name to keep the two apart.
+    /// </summary>
     private async Task<Result<Account>> EnsureOpeningBalanceAccountAsync(
         Currency currency, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var existing = await accounts.FindFirstByRoleAsync(AccountRole.OpeningBalance, cancellationToken);
-        if (existing is not null) return Result<Account>.Ok(existing);
+        var existing = await accounts.ListAsync(
+            AccountKind.Equity, AccountRole.OpeningBalance, includeArchived: true, cancellationToken);
+
+        var match = existing.FirstOrDefault(
+            a => string.Equals(a.CurrencyCode, currency.Code, StringComparison.Ordinal));
+
+        if (match is not null) return Result<Account>.Ok(match);
+
+        var name = existing.Count == 0 ? "Opening balance" : $"Opening balance ({currency.Code})";
 
         var created = Account.Create(
-            Guid.CreateVersion7(now), "Opening balance", AccountKind.Equity,
+            Guid.CreateVersion7(now), name, AccountKind.Equity,
             AccountRole.OpeningBalance, null, currency, now);
 
         if (created.IsFailure) return created.Error!;

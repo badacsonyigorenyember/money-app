@@ -19,9 +19,19 @@
 
     @if (Model.Page.Items.Count == 0)
     {
+        @* Reached by stepping back through the months as often as on a first run, so it says
+           which month is empty and points at the way out rather than assuming a beginner. *@
         <div class="empty">
-            <strong>No transactions yet</strong>
-            <p>Record your first spend with the + button.</p>
+            @if (!string.IsNullOrWhiteSpace(Model.Q))
+            {
+                <strong>Nothing matching &ldquo;@Model.Q&rdquo; in @Model.Overview.Label</strong>
+                <p>Clear the search, or step to another month with the arrows above.</p>
+            }
+            else
+            {
+                <strong>Nothing in @Model.Overview.Label</strong>
+                <p>Step to another month with the arrows above, or record something with +.</p>
+            }
         </div>
     }
     else
@@ -59,7 +69,7 @@
                             @if (!item.IsVoided)
                             {
                                 <button class="btn--small btn--danger"
-                                        hx-post="@($"/transactions?handler=Void&id={item.Id}&reason=Removed+by+the+user")"
+                                        hx-post="@($"/transactions?handler=Void&month={Model.Overview.PeriodKey}&id={item.Id}&reason=Removed+by+the+user")"
                                         hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
                                         hx-confirm="Remove this transaction? It stays in your history, marked as removed.">
                                     Remove
@@ -80,9 +90,17 @@
 
 @if (Model.RulesOutOfBand)
 {
-    @* The repeating-rules list lives in its own section further up the page, so it rides along
-       on this response as an out-of-band swap rather than needing a second request. *@
+    @* The repeating-rules list and the chart live in their own sections further up the page, so
+       they ride along on this response as out-of-band swaps rather than needing more requests.
+       Without the chart here, recording a spend would leave the line above it unmoved. *@
     <div id="recurring-list" hx-swap-oob="true">
         <partial name="Shared/_RecurringRules" model="Model" />
     </div>
+
+    @if (Model.Overview.Accounts.Count > 0)
+    {
+        <div hx-swap-oob="outerHTML:#monthChart">
+            <partial name="Shared/_AccountOverview" model="Model" />
+        </div>
+    }
 }
