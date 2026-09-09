@@ -406,6 +406,13 @@ td.amount, th.amount {
     white-space: nowrap;
 }
 
+/* The heading is the control that orders by the column. It looks like the heading it replaced
+   until you reach for it, so a table nobody wants to reorder reads exactly as it did before. */
+th > .sort { color: inherit; text-decoration: none; }
+th > .sort:hover { color: var(--ink); text-decoration: underline; }
+th[aria-sort="ascending"] > .sort::after { content: " \2191"; color: var(--brass); }
+th[aria-sort="descending"] > .sort::after { content: " \2193"; color: var(--brass); }
+
 td.amount .ccy { color: var(--ink-faint); font-size: 0.8125em; margin-left: 0.3em; }
 td.date {
     font-family: var(--figures);
@@ -467,6 +474,39 @@ tr.voided td:not(.actions) { text-decoration: line-through; }
 
 .tree-row .name { flex: 1; min-width: 0; }
 .tree > li:last-child > .tree-row { border-bottom: 0; }
+
+/* --- segmented switch ---------------------------------------------------- */
+
+/* Two halves of one page, so it reads as one control. The brass rule says which half you are
+   on, the same way it does in the nav at the top. */
+.segmented {
+    display: inline-flex;
+    margin-bottom: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.segmented a {
+    position: relative;
+    padding: 0.55rem 1rem;
+    font: 500 0.9375rem/1.2 var(--ui);
+    color: var(--ink-faint);
+    text-decoration: none;
+}
+
+.segmented a + a { border-left: 1px solid var(--line); }
+.segmented a:hover { background: var(--surface-sunk); color: var(--ink); }
+.segmented a[aria-current] { color: var(--ink); font-weight: 600; }
+
+.segmented a[aria-current]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--brass);
+}
 
 /* --- toolbar ------------------------------------------------------------ */
 

@@ -13,22 +13,25 @@ coding. When the two disagree, the spec wins and this file gets fixed.
 
 **Status:** implemented and running. Phases 0–2 shipped the ledger core, SQLite
 persistence and the HTMX shell — a usable manual expense tracker. On top of
-that came recurring entries (phase 3), bank import, multi-currency accounts and
-a home page you record from and step through a month at a time. Phase 8
-(single-file publish, the WebView2 desktop shell, single-instance guard,
-window state and restore-from-backup) is the most recent. Then, on 9 September
+that came recurring entries (phase 3), multi-currency accounts and a home page
+you record from and step through a month at a time. Phase 8 (single-file
+publish, the WebView2 desktop shell, single-instance guard, window state and
+restore-from-backup) is the most recent. Then, on 9 September
 2026, everything that existed only to serve this UI to a browser was removed:
 the `/api/v1` surface and its OpenAPI document, `HostingMode`, `ICurrentUser`,
 the idempotency filter, the PWA manifest and service worker, and Money.Api's
-launch profiles. Still unbuilt: budgets (4), pockets (5), investments and
-accrual (6) and the reports dashboard (7). Phase 9, server mode, is dropped.
+launch profiles. Bank sync went the same day — the Enable Banking feed, its
+client and options, `ImportBankTransactionsHandler`, `LedgerTemplates.Imported`
+and the Home screen's sync form are all gone. Still unbuilt: budgets (4),
+pockets (5), investments and accrual (6) and the reports dashboard (7). Phase
+9, server mode, is dropped. CSV import is still deferred, not dropped.
 The solution, projects and test commands below exist; match the shape there.
 
-Removing the API took four capabilities with it, because they had a route and
-no screen: transfer between accounts, recategorising an imported line, an entry
-split across several categories, and a balance as of a past date. The handlers
-are all still in `Money.Application` and still tested. Each needs a screen, not
-an endpoint. See section 8 of [docs/using-the-app.md](docs/using-the-app.md).
+Removing the API took three capabilities with it, because they had a route and
+no screen: transfer between accounts, an entry split across several categories,
+and a balance as of a past date. The handlers are all still in
+`Money.Application` and still tested. Each needs a screen, not an endpoint.
+See section 8 of [docs/using-the-app.md](docs/using-the-app.md).
 
 ---
 
@@ -97,14 +100,13 @@ Consequences worth stating plainly:
 - Categories are accounts (`Kind=Income|Expense, Role=Category`) in the same
   tree. There is no `CategoryId` column, and spending reports are a query
   restricted to `Kind=Expense` — that is what makes I12 structural.
-- Recurring materialisation, interest accrual and bank import are idempotent,
-  guarded by a unique index in the database, not only in code. Import's key is
-  `ExternalRef` (`UX_Transactions_Import_ExternalRef`); the others' is
-  `(SourceKind, SourceId, OccurredOn)`.
-- A bank feed knows an amount, not a purpose, so every imported line lands on
-  an `Unclassified` category and is recategorised by repointing that one
-  posting. The feed is read-only and booked-only: pending entries are dropped,
-  because their identifiers change when they book.
+- Recurring materialisation and interest accrual are idempotent, guarded by a
+  unique index in the database, not only in code:
+  `UX_Transactions_Source_Idempotency` over `(SourceKind, SourceId,
+  OccurredOn)`. `ExternalRef`,
+  `SourceKind=Import` and `UX_Transactions_Import_ExternalRef` are left in the
+  schema by the removal of bank sync — nothing writes them now, and a CSV
+  import would want them back.
 - The `ProjectionEngine` is read-only. Projected interest is never written as
   a transaction and never enters net worth.
 - `PeriodResolver` is the only component that computes period boundaries.

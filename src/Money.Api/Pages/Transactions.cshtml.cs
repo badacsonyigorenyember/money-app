@@ -5,7 +5,6 @@ using Money.Application.Abstractions;
 using Money.Application.Accounts;
 using Money.Application.Categories;
 using Money.Application.Contracts;
-using Money.Application.Import;
 using Money.Application.Recurring;
 using Money.Application.Transactions;
 using Money.Domain.Time;
@@ -19,7 +18,6 @@ public sealed class TransactionsModel(
     GetCategoryTreeHandler categories,
     ListAccountsHandler accounts,
     GetAccountOverviewHandler overview,
-    ImportBankTransactionsHandler importBank,
     CreateRecurringRuleHandler createRule,
     ListRecurringRulesHandler listRules,
     UpdateRecurringRuleHandler updateRule,
@@ -35,7 +33,6 @@ public sealed class TransactionsModel(
     public IReadOnlyList<CategoryNodeDto> IncomeCategories { get; private set; } = [];
     public IReadOnlyList<RecurringRuleDto> Rules { get; private set; } = [];
     public string? ErrorMessage { get; private set; }
-    public string? ImportMessage { get; private set; }
     public string? RepeatMessage { get; private set; }
     public DateOnly Today { get; private set; }
 
@@ -80,6 +77,31 @@ public sealed class TransactionsModel(
             .Where(a => a.RateToBase is not null)
             .Where(a => !Picked || (Selected ?? []).Contains(a.AccountId))
             .ToArray();
+
+    /// <summary>
+    /// Which column orders the list, as a key with an optional leading <c>-</c> for descending:
+    /// <c>-date</c> is the default the list has always had. Anything else is ignored rather than
+    /// rejected - an order is not worth an error page.
+    /// </summary>
+    [BindProperty(SupportsGet = true), FromQuery] public string? Sort { get; set; }
+
+    private static readonly string[] Sortable = ["date", "description", "category", "account", "amount"];
+
+    private string Ordering =>
+        Sortable.Contains((Sort ?? "").TrimStart('-')) ? Sort! : "-date";
+
+    public string SortKey => Ordering.TrimStart('-');
+    public bool SortDescending => Ordering.StartsWith('-');
+
+    /// <summary>The ordering as it goes back into a query string, so a swap keeps it.</summary>
+    public string CurrentSort => Ordering;
+
+    /// <summary>Where a click on <paramref name="key"/>'s heading goes: that column the other way
+    /// round if it is the one already ordering the list, and ascending if it is not.</summary>
+    public string NextSort(string key) => SortKey == key && !SortDescending ? "-" + key : key;
+
+    public string AriaSort(string key) =>
+        SortKey != key ? "none" : SortDescending ? "descending" : "ascending";
 
     [BindProperty(SupportsGet = true), FromQuery] public Guid? AccountId { get; set; }
     [BindProperty(SupportsGet = true), FromQuery] public Guid? CategoryId { get; set; }
@@ -188,31 +210,6 @@ public sealed class TransactionsModel(
     private static IEnumerable<CategoryNodeDto> Flatten(CategoryNodeDto node) =>
         new[] { node }.Concat(node.Children.SelectMany(Flatten));
 
-    public async Task<IActionResult> OnPostImportBankAsync(
-        [FromForm] Guid accountId, CancellationToken cancellationToken)
-    {
-        var result = await importBank.HandleAsync(
-            new ImportBankTransactionsRequest(accountId, null), cancellationToken);
-
-        if (result.IsFailure) ErrorMessage = result.Error!.Message;
-        else ImportMessage = Describe(result.Value);
-
-        return await RowsAsync(cancellationToken);
-    }
-
-    private static string Describe(ImportResultDto result)
-    {
-        var skipped = result.SkippedForeignCurrency > 0
-            ? $", {result.SkippedForeignCurrency} skipped (other currency)"
-            : "";
-
-        return result.Imported == 0
-            ? $"Nothing new between {result.From:yyyy-MM-dd} and {result.To:yyyy-MM-dd} " +
-              $"({result.AlreadyPresent} already here{skipped})."
-            : $"Added {result.Imported} from the bank, filed under Unclassified " +
-              $"({result.AlreadyPresent} already here{skipped}).";
-    }
-
     public async Task<IActionResult> OnPostVoidAsync(
         Guid id, string reason, CancellationToken cancellationToken)
     {
@@ -273,12 +270,37 @@ public sealed class TransactionsModel(
                 AccountId, CategoryId, Q, IncludeVoided, null, int.MaxValue),
             cancellationToken);
 
+        Page = Ordered(Page);
+
         Accounts = (await accounts.HandleAsync(null, null, false, cancellationToken))
             .Where(a => a.Kind == "Asset").ToArray();
 
         SpendCategories = await categories.HandleAsync("Expense", false, cancellationToken);
         IncomeCategories = await categories.HandleAsync("Income", false, cancellationToken);
         Rules = await listRules.HandleAsync(true, cancellationToken);
+    }
+
+    /// <summary>
+    /// The month in the order the reader asked for. The whole month is already here - it is the
+    /// page - so this is a sort of what is on screen rather than a second trip to the database,
+    /// and it sorts the amounts as shown, after the sign convention has been applied to them.
+    /// </summary>
+    private TransactionPageDto Ordered(TransactionPageDto page)
+    {
+        var ascending = SortKey switch
+        {
+            "description" => page.Items.OrderBy(i => i.Description, StringComparer.CurrentCultureIgnoreCase),
+            "category" => page.Items.OrderBy(i => i.CategoryName, StringComparer.CurrentCultureIgnoreCase),
+            "account" => page.Items.OrderBy(i => i.AccountName, StringComparer.CurrentCultureIgnoreCase),
+            "amount" => page.Items.OrderBy(i => i.Amount),
+            _ => page.Items.OrderBy(i => i.OccurredOn)
+        };
+
+        // Reversing a stable ascending order is what makes the descending one a total order as
+        // well: rows that tie keep a fixed position instead of shuffling between requests.
+        var ordered = ascending.ThenBy(i => i.Id);
+
+        return page with { Items = (SortDescending ? ordered.Reverse() : ordered).ToArray() };
     }
 }
 

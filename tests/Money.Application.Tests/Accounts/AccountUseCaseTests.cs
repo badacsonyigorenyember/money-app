@@ -326,6 +326,55 @@ public sealed class AccountUseCaseTests : IDisposable
     }
 
     [Fact]
+    public async Task Restoring_an_archived_account_puts_it_back_in_the_open_list()
+    {
+        var cash = (await Create.HandleAsync(
+            new CreateAccountRequest("Cash", "Asset", "Cash", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        await new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(cash.Id, CancellationToken.None);
+
+        var result = await new RestoreAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(cash.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        (await _harness.Accounts.FindAsync(cash.Id))!.IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Restoring_a_child_whose_parent_is_still_archived_is_refused()
+    {
+        var gaming = (await Create.HandleAsync(
+            new CreateAccountRequest("Gaming", "Expense", "Category", null, "EUR", null, null),
+            CancellationToken.None)).Value;
+        var steam = (await Create.HandleAsync(
+            new CreateAccountRequest("Steam", "Expense", "Category", gaming.Id, "EUR", null, null),
+            CancellationToken.None)).Value;
+
+        var archive = new ArchiveAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock);
+        await archive.HandleAsync(steam.Id, CancellationToken.None);
+        await archive.HandleAsync(gaming.Id, CancellationToken.None);
+
+        var result = await new RestoreAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(steam.Id, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("account.parent_archived");
+        (await _harness.Accounts.FindAsync(steam.Id))!.IsArchived.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Restoring_an_account_that_does_not_exist_is_a_not_found()
+    {
+        var result = await new RestoreAccountHandler(_harness.Accounts, _harness.UnitOfWork, _harness.Clock)
+            .HandleAsync(Guid.NewGuid(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("account.not_found");
+    }
+
+    [Fact]
     public async Task A_similarly_named_sibling_does_not_block_archiving()
     {
         var gaming = (await Create.HandleAsync(

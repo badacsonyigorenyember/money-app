@@ -12,6 +12,7 @@ public sealed class CategoriesModel(
     CreateCategoryHandler create,
     PatchAccountHandler patch,
     ArchiveAccountHandler archive,
+    RestoreAccountHandler restore,
     DeleteAccountHandler delete,
     ILedgerQueries queries) : PageModel
 {
@@ -71,6 +72,19 @@ public sealed class CategoriesModel(
         return Partial("Shared/_CategoryTree", this);
     }
 
+
+    public async Task<IActionResult> OnPostRestoreAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await LoadAsync(cancellationToken);
+        var name = Archived.FirstOrDefault(row => row.Category.Id == id)?.Category.Name;
+
+        var result = await restore.HandleAsync(id, cancellationToken);
+        if (result.IsFailure) ErrorMessage = result.Error!.Message;
+        else Message = $"{name ?? "The category"} is back in your categories.";
+
+        await LoadAsync(cancellationToken);
+        return Partial("Shared/_CategoryTree", this);
+    }
     public async Task<IActionResult> OnPostDeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         // Read the name before the delete: afterwards there may be no row left to read it from.

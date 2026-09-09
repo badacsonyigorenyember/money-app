@@ -115,6 +115,11 @@
                                 @CurrencyFormat.Format(row.Balance, row.Account.CurrencyCode)<span class="ccy">@row.Account.CurrencyCode</span>
                             </td>
                             <td class="actions">
+                                <button class="btn--small"
+                                        hx-post="@($"/accounts?handler=Restore&id={row.Account.Id}")"
+                                        hx-target="#accountRows" hx-swap="outerHTML" hx-disabled-elt="this">
+                                    Restore
+                                </button>
                                 <button class="btn--small btn--danger"
                                         hx-post="@($"/accounts?handler=Delete&id={row.Account.Id}")"
                                         hx-target="#accountRows" hx-swap="outerHTML" hx-disabled-elt="this"

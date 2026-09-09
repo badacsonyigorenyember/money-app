@@ -85,64 +85,15 @@ public static class LedgerTemplates
                      debit: account, credit: openingBalanceEquity, amount, nowUtc);
     }
 
-    /// <summary>
-    /// One booked line from a bank feed. <paramref name="signedAmount"/> is stated from the bank
-    /// account's point of view in the ledger's own convention: positive = debit = money in,
-    /// negative = money out. A feed cannot know which category a line belongs to, so the other
-    /// leg lands on an Unclassified category and is repointed later - which is why both an
-    /// expense and an income counterparty are required up front, and both are validated
-    /// regardless of which one this particular sign will use.
-    /// </summary>
-    public static Result<Transaction> Imported(
-        Guid id, DateOnly occurredOn, string description, string? payee,
-        Account bankAccount, Account unclassifiedExpense, Account unclassifiedIncome,
-        MoneyValue signedAmount, string externalRef, DateTimeOffset nowUtc)
-    {
-        ArgumentNullException.ThrowIfNull(bankAccount);
-        ArgumentNullException.ThrowIfNull(unclassifiedExpense);
-        ArgumentNullException.ThrowIfNull(unclassifiedIncome);
-        ArgumentNullException.ThrowIfNull(signedAmount);
-
-        if (bankAccount.Kind != AccountKind.Asset)
-            return DomainErrors.Account.KindRoleMismatch(
-                bankAccount.Kind.ToString(), bankAccount.Role.ToString());
-
-        if (unclassifiedExpense.Kind != AccountKind.Expense || !unclassifiedExpense.IsCategory)
-            return DomainErrors.Account.NotACategory(unclassifiedExpense.Name);
-
-        if (unclassifiedIncome.Kind != AccountKind.Income || !unclassifiedIncome.IsCategory)
-            return DomainErrors.Account.NotACategory(unclassifiedIncome.Name);
-
-        var trimmedRef = externalRef?.Trim();
-        if (string.IsNullOrEmpty(trimmedRef)) return DomainErrors.Transaction.ExternalRefRequired();
-
-        if (signedAmount.IsZero) return DomainErrors.Transaction.ZeroAmount();
-
-        // Build takes a positive amount and the two sides explicitly, so the sign only decides
-        // which account each side is - it is never carried into the amount itself.
-        var (debit, credit, amount) = signedAmount.Sign > 0
-            ? (bankAccount, unclassifiedIncome, signedAmount)
-            : (unclassifiedExpense, bankAccount, signedAmount.Negate());
-
-        return Build(id, occurredOn, description, payee, debit, credit, amount, nowUtc,
-                     TransactionSourceKind.Import, trimmedRef);
-    }
-
     private static Result<Transaction> Build(
         Guid id, DateOnly occurredOn, string description, string? payee,
-        Account debit, Account credit, MoneyValue amount, DateTimeOffset nowUtc,
-        TransactionSourceKind sourceKind = TransactionSourceKind.Manual, string? externalRef = null)
+        Account debit, Account credit, MoneyValue amount, DateTimeOffset nowUtc)
     {
         var accountsById = new Dictionary<Guid, Account> { [debit.Id] = debit, [credit.Id] = credit };
 
-        var created = Transaction.Create(
-            id, occurredOn, description, payee, sourceKind, sourceId: null,
+        return Transaction.Create(
+            id, occurredOn, description, payee, TransactionSourceKind.Manual, sourceId: null,
             [new PostingDraft(debit.Id, amount), new PostingDraft(credit.Id, amount.Negate())],
             accountsById, nowUtc);
-
-        if (created.IsSuccess && externalRef is not null)
-            created.Value.SetExternalRef(externalRef, nowUtc);
-
-        return created;
     }
 }

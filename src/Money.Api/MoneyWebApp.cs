@@ -19,7 +19,7 @@ public static class MoneyWebApp
     {
         var builder = WebApplication.CreateBuilder(options);
 
-        builder.Services.AddMoneyApp(builder.Configuration);
+        builder.Services.AddMoneyApp();
         builder.Services.AddRazorPages();
         // HTMX sends the antiforgery token as a header (see Pages/Shared/_Layout.cshtml's hx-headers) for
         // the requests that are not a plain <form> post - the Remove button has no enclosing form.

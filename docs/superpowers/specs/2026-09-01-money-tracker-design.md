@@ -39,7 +39,7 @@ Recorded explicitly so scope creep is visible:
 | Excluded | Reason | Left room for it? |
 |---|---|---|
 | Market-priced holdings (stocks, ETFs, crypto) | User tracks fixed-rate instruments only | Yes — account role and valuation table shape reserved |
-| Bank / CSV statement import | **Shipped after approval, outside the original v1 line.** Enable Banking (PSD2 AISP) read-only feed for one linked account; CSV import still deferred | `Transaction.SourceKind = Import` + `ExternalRef`, guarded by `UX_Transactions_Import_ExternalRef` |
+| Bank / CSV statement import | **Deferred again.** An Enable Banking (PSD2 AISP) read-only feed shipped after approval and was removed on 9 September 2026; CSV import was never built | `Transaction.SourceKind = Import` + `ExternalRef` and `UX_Transactions_Import_ExternalRef` are still in the schema, written by nothing |
 | Multi-currency UI | Single currency in practice | Yes — currency code stored on every amount from day one |
 | Credit cards / loans UI | Not requested | Yes — `AccountKind.Liability` exists in the schema |
 | Multi-user / accounts / login | Single-user desktop app | No. The `ICurrentUser` seam was removed on 9 September 2026; there are still no owner columns to add one back around. |
@@ -773,7 +773,7 @@ turns it into the executable that was asked for.
 | Double-entry vocabulary leaks into the UI | Unusable for the intended user | The word "posting" never appears in a view; a UI review at the end of phases 2 and 7 |
 | Sign convention confusion in reports | Income shows negative, expenses inverted | Convention documented in section 5.3, applied in one mapper, asserted in API tests |
 | Over-engineering the layering for a solo app | Slow progress | Five projects is the floor for the dependency rule to be enforceable; `Money.Web` was deliberately merged into `Money.Api` |
-| Scope creep toward market-priced investments | Phase 8 never ships | Section 2 is the contract. Bank import was later approved explicitly and is no longer deferred; market-priced holdings still are |
+| Scope creep toward market-priced investments | Phase 8 never ships | Section 2 is the contract. Bank import was approved, shipped, then removed on 9 September 2026; it and market-priced holdings are both deferred again |
 
 ---
 
@@ -784,9 +784,8 @@ turns it into the executable that was asked for.
    crisis.
 2. The user runs Windows 11 with WebView2 present (the default) and will
    install the .NET 9 SDK to build.
-3. Historical data is entered manually or starts from an opening balance. The
-   bank feed only reaches back as far as the ASPSP exposes (about 90 days),
-   so it is a keep-up mechanism, not a backfill.
+3. Historical data is entered manually or starts from an opening balance.
+   There is no feed to backfill from.
 4. Data volume stays in the tens of thousands of transactions, so aggregate
    queries run directly against `postings` with no materialised summary
    tables. A `period_summary` table is added only if measurement shows it is

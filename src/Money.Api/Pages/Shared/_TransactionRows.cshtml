@@ -1,15 +1,29 @@
 @model Money.Api.Pages.TransactionsModel
 @using Money.Application.Presentation
+@{
+    // A heading is the control that orders by it, and it is a plain link: the order ends up in
+    // the address, so the back button walks it and a reload keeps it. Boosting it swaps <main>
+    // in place, exactly as the month arrows above do.
+    async Task Column(string key, string label, string? extraClass)
+    {
+        await Task.CompletedTask;
+
+        var href = Url.Page("/Transactions", new
+        {
+            month = Model.Overview.PeriodKey, q = Model.Q,
+            includeVoided = Model.IncludeVoided, sort = Model.NextSort(key)
+        });
+
+        <th scope="col" class="@extraClass" aria-sort="@Model.AriaSort(key)">
+            <a class="sort" href="@href">@label</a>
+        </th>
+    }
+}
 
 <div id="rows">
     @if (Model.ErrorMessage is not null)
     {
         <p class="notice notice--error" role="alert">@Model.ErrorMessage</p>
-    }
-
-    @if (Model.ImportMessage is not null)
-    {
-        <p class="notice" role="status">@Model.ImportMessage</p>
     }
 
     @if (Model.RepeatMessage is not null)
@@ -38,13 +52,13 @@
     {
         <div class="table-wrap">
             <table>
-                <thead>
+                <thead hx-boost="true" hx-target="#content" hx-select="#content" hx-swap="outerHTML show:none">
                     <tr>
-                        <th scope="col">Date</th>
-                        <th scope="col">Description</th>
-                        <th scope="col" class="hide-narrow">Category</th>
-                        <th scope="col" class="hide-narrow">Account</th>
-                        <th scope="col" class="amount">Amount</th>
+                        @{ await Column("date", "Date", null); }
+                        @{ await Column("description", "Description", null); }
+                        @{ await Column("category", "Category", "hide-narrow"); }
+                        @{ await Column("account", "Account", "hide-narrow"); }
+                        @{ await Column("amount", "Amount", "amount"); }
                         <th scope="col"><span class="visually-hidden">Actions</span></th>
                     </tr>
                 </thead>
@@ -69,7 +83,7 @@
                             @if (!item.IsVoided)
                             {
                                 <button class="btn--small btn--danger"
-                                        hx-post="@($"/transactions?handler=Void&month={Model.Overview.PeriodKey}&id={item.Id}&reason=Removed+by+the+user")"
+                                        hx-post="@($"/transactions?handler=Void&month={Model.Overview.PeriodKey}&sort={Model.CurrentSort}&id={item.Id}&reason=Removed+by+the+user")"
                                         hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
                                         hx-confirm="Remove this transaction? It stays in your history, marked as removed.">
                                     Remove

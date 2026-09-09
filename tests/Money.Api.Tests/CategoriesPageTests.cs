@@ -21,6 +21,27 @@ public sealed class CategoriesPageTests : IClassFixture<ApiFactory>
         html.Should().Contain("Flights");
     }
 
+    /// <summary>
+    /// Income and spending are two halves of one page, and which half you are adding to is the
+    /// same choice as which half you are looking at. The toggle is a pair of links, so it works
+    /// with scripting off and the browser's back button walks between the two.
+    /// </summary>
+    [Fact]
+    public async Task A_toggle_switches_between_creating_spending_and_income_categories()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var spending = await client.GetStringAsync("/categories", CancellationToken.None);
+
+        spending.Should().Contain("Add a spending category");
+        spending.Should().Contain("kind=Income", "the toggle has to offer the other half");
+
+        var income = await client.GetStringAsync("/categories?kind=Income", CancellationToken.None);
+
+        income.Should().Contain("Add an income category");
+        income.Should().Contain("kind=Expense");
+    }
+
     [Fact]
     public async Task The_accounts_page_shows_balances()
     {

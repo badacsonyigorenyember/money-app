@@ -79,6 +79,11 @@
                                 }
                             </td>
                             <td class="actions">
+                                <button class="btn--small"
+                                        hx-post="@($"/categories?handler=Restore&id={row.Category.Id}&kind={Model.Kind}")"
+                                        hx-target="#tree" hx-swap="outerHTML" hx-disabled-elt="this">
+                                    Restore
+                                </button>
                                 <button class="btn--small btn--danger"
                                         hx-post="@($"/categories?handler=Delete&id={row.Category.Id}&kind={Model.Kind}")"
                                         hx-target="#tree" hx-swap="outerHTML" hx-disabled-elt="this"

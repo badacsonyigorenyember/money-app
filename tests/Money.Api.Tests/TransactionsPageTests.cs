@@ -315,6 +315,93 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     }
 
     /// <summary>
+    /// The month is the page - every row is already on it - so ordering it is the reader's
+    /// choice of column, not another query. The heading is the control, and it is a plain link,
+    /// so the order lives in the address and the back button walks it.
+    /// </summary>
+    [Fact]
+    public async Task Any_column_can_order_the_month()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 900m, openedOn: new DateOnly(2026, 1, 1));
+        var books = await _factory.CreateCategoryAsync("Books " + suffix, "Expense");
+
+        // Deliberately not in amount order by date, so ordering by amount has to actually move
+        // the rows rather than leave them where the default put them.
+        await _factory.QuickEntryAsync(30m, books.Id, bank.Id, new DateOnly(2026, 9, 2), "Middling " + suffix);
+        await _factory.QuickEntryAsync(10m, books.Id, bank.Id, new DateOnly(2026, 9, 3), "Cheapest " + suffix);
+        await _factory.QuickEntryAsync(50m, books.Id, bank.Id, new DateOnly(2026, 9, 1), "Dearest " + suffix);
+
+        var ascending = await client.GetStringAsync(
+            "/transactions?month=2026-M09&sort=amount", CancellationToken.None);
+
+        Position(ascending, "Cheapest " + suffix).Should().BeLessThan(Position(ascending, "Middling " + suffix));
+        Position(ascending, "Middling " + suffix).Should().BeLessThan(Position(ascending, "Dearest " + suffix));
+
+        ascending.Should().Contain("aria-sort=\"ascending\"", "the ordered column has to say so");
+
+        var descending = await client.GetStringAsync(
+            "/transactions?month=2026-M09&sort=-amount", CancellationToken.None);
+
+        Position(descending, "Dearest " + suffix).Should().BeLessThan(Position(descending, "Cheapest " + suffix));
+
+        // The default is the one the list has always had: newest first, and it offers every
+        // other column as a link rather than needing the query string typed by hand.
+        var byDate = await client.GetStringAsync("/transactions?month=2026-M09", CancellationToken.None);
+
+        Position(byDate, "Cheapest " + suffix).Should().BeLessThan(Position(byDate, "Dearest " + suffix));
+        byDate.Should().Contain("sort=amount");
+        byDate.Should().Contain("sort=description");
+    }
+
+    /// <summary>
+    /// Removing a row redraws the list from the server, and the order the reader chose is not
+    /// part of that form - so it has to ride on the request, or a removal silently re-sorts the
+    /// month back to newest-first under them.
+    /// </summary>
+    [Fact]
+    public async Task The_chosen_order_survives_removing_a_row()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 900m, openedOn: new DateOnly(2026, 1, 1));
+        var books = await _factory.CreateCategoryAsync("Books " + suffix, "Expense");
+
+        await _factory.QuickEntryAsync(30m, books.Id, bank.Id, new DateOnly(2026, 9, 2), "Keeper " + suffix);
+        var doomed = await _factory.QuickEntryAsync(
+            10m, books.Id, bank.Id, new DateOnly(2026, 9, 3), "Doomed " + suffix);
+
+        var page = await client.GetStringAsync(
+            "/transactions?month=2026-M09&sort=-amount", CancellationToken.None);
+        var token = Regex.Match(page, @"RequestVerificationToken""\s*:\s*""([^""]+)""").Groups[1].Value;
+
+        var remove = Regex.Match(page, @"/transactions\?handler=Void&amp;[^""]*id=" + doomed.Id + @"[^""]*").Value;
+        remove.Should().NotBeEmpty("the Remove button posts to a URL carrying the row's id");
+        remove.Should().Contain("sort=-amount", "and the order the reader is looking at");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, remove.Replace("&amp;", "&", StringComparison.Ordinal));
+        request.Headers.Add("RequestVerificationToken", token);
+
+        var rows = await (await client.SendAsync(request, CancellationToken.None))
+            .Content.ReadAsStringAsync(CancellationToken.None);
+
+        rows.Should().Contain("aria-sort=\"descending\"");
+        rows.Should().Contain("sort=-amount", "the rows that come back still offer the same order");
+    }
+
+    private static int Position(string html, string description)
+    {
+        var at = html.IndexOf(description, StringComparison.Ordinal);
+        at.Should().BeGreaterThanOrEqualTo(0, "{0} should be listed", description);
+        return at;
+    }
+
+    /// <summary>
     /// A line floating in the middle of the box says how the month went but not how much money
     /// there is. Zero stays on the axis whatever the balances are, so the height of the line is
     /// readable as an amount rather than only as a shape.

@@ -1,7 +1,7 @@
 # Using Money — a walkthrough of everything the app does today
 
 This is the tour, not the reference. [running-locally.md](running-locally.md) covers data
-locations, backups and tests; [bank-sync.md](bank-sync.md) covers the Enable Banking setup.
+locations, backups and tests.
 
 Status note: what follows is what actually ships right now. Screens the spec promises but that do
 not exist yet (budgets, pockets, interest and projections, a reports dashboard) are called out at
@@ -198,19 +198,6 @@ Running it twice posts nothing extra: a unique index in the database, not just a
 is what makes that true. **Stop** ends the schedule and forgets it; the entries it already made
 stay, because they are history, and history is voided one entry at a time.
 
-### Sync from bank
-
-Appears once you have at least one account. Pick the account, press **Sync from bank**.
-
-Pulls the last **35 days** of **booked** lines from Enable Banking and files every one of them
-under an auto-created `Unclassified` category. Pressing it twice is safe — each line carries the
-bank's `entry_reference` and a unique index makes a re-run a no-op. You get a one-line summary
-("Added 7 from the bank, filed under Unclassified (23 already here)"), including a count of any
-lines skipped for being in another currency than the account.
-
-Unconfigured, it reports `bankfeed.not_configured` and changes nothing. Setup is in
-[bank-sync.md](bank-sync.md).
-
 ### The list
 
 Free-text search over description and payee, and **Show removed**. The month is the filter;
@@ -245,8 +232,8 @@ to report as spending.
   the UI gives you two levels; deeper nesting is possible through the API.
 - Each node has **Archive**. An archived category can no longer receive new postings, but every
   past transaction keeps it.
-- Archived categories are listed below the tree with a **Delete for good** button, which works
-  exactly as it does for accounts — see [section 5](#5-accounts--accounts).
+- Archived categories are listed below the tree with **Restore** and **Delete for good** buttons,
+  which work exactly as they do for accounts — see [section 5](#5-accounts--accounts).
 - A child always inherits its parent's kind — you cannot hang a spending category under an income
   one.
 
@@ -262,11 +249,12 @@ starting balance and as-of date. The currency defaults to your base one and is w
 is actually kept in; the table shows each account's live balance in that currency, with an
 **Archive** button beside it.
 
-### Archived accounts, and deleting one
+### Archived accounts, restoring and deleting
 
 Archived accounts get their own table below the open ones. Each row says what the ledger still
 holds against it — either **Nothing uses it** or a count of entries — and carries a **Delete for
-good** button. There is no undo, and everything filed underneath goes with it.
+good** button next to a **Restore** one. Restoring puts the account back in your open list,
+exactly as it was. Deleting has no undo, and everything filed underneath goes with it.
 
 What deleting does depends on that count:
 
@@ -349,18 +337,18 @@ fixes nothing.
 
 Until 9 September 2026 there was a JSON API under `/api/v1`, and four things were reachable only
 through it. The API is gone — the window never called it, so it was thirty routes kept alive for
-`curl` — and with it those four went from awkward to impossible. The use cases are all still in
-`Money.Application`; what each needs is a screen.
+`curl` — and with it those four went from awkward to impossible. Recategorising an imported line
+was the fourth, and it went with bank sync itself; the other three use cases are all still in
+`Money.Application`, and what each needs is a screen.
 
 | | |
 |---|---|
 | **Move money between accounts** | `TransferHandler` exists and is tested. Nothing calls it. |
-| **Recategorise an imported line** | Bank sync files everything under `Unclassified`, and `ReplaceTransactionHandler` is how you would repoint it. This is the real gap if you turn bank sync on. |
 | **Split one entry across several categories** | `CreateTransactionHandler` takes any number of lines; the quick-add form takes one category. |
 | **A balance on a past date** | `GetAccountBalanceHandler` takes an `asOf`; no screen passes one. |
 
 Everything else on the Settings and Home screens does what the API used to: backup, restore,
-integrity check, export, import, and the repeating rules.
+integrity check, export, and the repeating rules.
 
 ---
 
@@ -371,6 +359,5 @@ projections, a reports dashboard, an edit-transaction screen, a transfer screen,
 on Categories, and any way to see past the 200th entry in a month.
 
 Everything above works on one machine, against one local file, with no account and no sign-in.
-Two things reach the internet, both of them optional and both of them failing quietly when it is
-not there: bank sync, and the exchange rates that let accounts in different currencies share one
-chart.
+One thing reaches the internet, optional and failing quietly when it is not there: the exchange
+rates that let accounts in different currencies share one chart.

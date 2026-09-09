@@ -46,9 +46,12 @@ public sealed class TransactionConfiguration : IEntityTypeConfiguration<Transact
                .IsUnique()
                .HasFilter("SourceKind IN ('Recurring','Accrual') AND SourceId IS NOT NULL");
 
-        // The same guard for the bank feed, which identifies a line by ExternalRef rather than
-        // by (SourceId, OccurredOn). Partial for the same reason: a manual transaction may carry
-        // an ExternalRef (a receipt number, an invoice id) without it having to be unique.
+        // The same guard for an import path, which identifies a line by ExternalRef rather than
+        // by (SourceId, OccurredOn). Nothing writes SourceKind='Import' since bank sync was
+        // removed, so this currently guards only rows an older build imported; it stays because
+        // dropping it would rewrite the table for nothing and CSV import will want it back.
+        // Partial for the same reason as above: a manual transaction may carry an ExternalRef
+        // (a receipt number, an invoice id) without it having to be unique.
         builder.HasIndex(t => t.ExternalRef, "UX_Transactions_Import_ExternalRef")
                .IsUnique()
                .HasFilter("SourceKind = 'Import' AND ExternalRef IS NOT NULL");

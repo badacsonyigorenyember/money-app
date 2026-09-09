@@ -47,12 +47,12 @@ else
                     </td>
                     <td class="actions">
                         <button class="btn--small"
-                                hx-post="@($"/transactions?handler=PauseRepeat&month={Model.Overview.PeriodKey}&id={rule.Id}&active={(!rule.IsActive).ToString().ToLowerInvariant()}")"
+                                hx-post="@($"/transactions?handler=PauseRepeat&month={Model.Overview.PeriodKey}&sort={Model.CurrentSort}&id={rule.Id}&active={(!rule.IsActive).ToString().ToLowerInvariant()}")"
                                 hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this">
                             @(rule.IsActive ? "Pause" : "Resume")
                         </button>
                         <button class="btn--small btn--danger"
-                                hx-post="@($"/transactions?handler=DeleteRepeat&month={Model.Overview.PeriodKey}&id={rule.Id}")"
+                                hx-post="@($"/transactions?handler=DeleteRepeat&month={Model.Overview.PeriodKey}&sort={Model.CurrentSort}&id={rule.Id}")"
                                 hx-target="#rows" hx-swap="outerHTML" hx-disabled-elt="this"
                                 hx-confirm="Stop repeating this? Entries it already made stay in your history.">
                             Stop

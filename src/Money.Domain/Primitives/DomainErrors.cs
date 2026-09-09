@@ -178,11 +178,6 @@ public static class DomainErrors
         public static DomainError NotFound(Guid id) =>
             new("transaction.not_found", $"Transaction {id} does not exist.");
 
-        public static DomainError ExternalRefRequired() =>
-            new("transaction.external_ref_required",
-                "An imported transaction needs an external reference; it is the key that stops " +
-                "the next sync importing the same line twice.");
-
         public static DomainError DateInFuture(DateOnly occurredOn, DateOnly today) =>
             new("transaction.date_too_far_in_future",
                 $"{occurredOn:O} is more than a year after {today:O}; check the date.");
@@ -218,12 +213,5 @@ public static class DomainErrors
             new("admin.backup_not_restorable",
                 $"'{fileName}' cannot be restored from: it is damaged, or it is not a backup of " +
                 "this app's data.");
-    }
-
-    public static class Import
-    {
-        public static DomainError WindowOutOfRange(int days, int max) =>
-            new("import.window_out_of_range",
-                $"The import window must be between 1 and {max} days, but was {days}.");
     }
 }

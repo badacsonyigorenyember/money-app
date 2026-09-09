@@ -20,8 +20,6 @@ public sealed class LedgerTemplatesTests
     private readonly Account _food = Root("Food", AccountKind.Expense, AccountRole.Category);
     private readonly Account _salary = Root("Salary", AccountKind.Income, AccountRole.Category);
     private readonly Account _opening = Root("Opening balance", AccountKind.Equity, AccountRole.OpeningBalance);
-    private readonly Account _unclassifiedExpense = Root("Unclassified", AccountKind.Expense, AccountRole.Category);
-    private readonly Account _unclassifiedIncome = Root("Unclassified income", AccountKind.Income, AccountRole.Category);
 
     [Fact]
     public void An_expense_debits_the_category_and_credits_the_account()
@@ -171,125 +169,6 @@ public sealed class LedgerTemplatesTests
 
         actNullAccount.Should().Throw<ArgumentNullException>();
         actNullEquity.Should().Throw<ArgumentNullException>();
-        actNullAmount.Should().Throw<ArgumentNullException>();
-    }
-
-    // --- Import (bank feed) -------------------------------------------------------------
-    //
-    // The signed amount is stated from the bank account's point of view in the ledger's own
-    // convention: positive = debit = money in, negative = money out. Getting this backwards is
-    // the single most damaging bug an import can have, so both directions are pinned here.
-
-    [Fact]
-    public void An_imported_credit_debits_the_bank_account_and_credits_unclassified_income()
-    {
-        var transaction = LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "Salary OTP", "Employer Kft",
-            _bank, _unclassifiedExpense, _unclassifiedIncome, Eur(300_000), "eb:abc", Now).Value;
-
-        transaction.Postings.Single(p => p.AccountId == _bank.Id).AmountMinor.Should().Be(300_000);
-        transaction.Postings.Single(p => p.AccountId == _unclassifiedIncome.Id)
-                   .AmountMinor.Should().Be(-300_000);
-        transaction.Postings.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void An_imported_debit_debits_unclassified_expense_and_credits_the_bank_account()
-    {
-        var transaction = LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR 1234", "SPAR",
-            _bank, _unclassifiedExpense, _unclassifiedIncome, Eur(-2_000), "eb:def", Now).Value;
-
-        transaction.Postings.Single(p => p.AccountId == _unclassifiedExpense.Id)
-                   .AmountMinor.Should().Be(2_000);
-        transaction.Postings.Single(p => p.AccountId == _bank.Id).AmountMinor.Should().Be(-2_000);
-        transaction.Postings.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void An_import_carries_its_source_kind_and_external_reference()
-    {
-        var transaction = LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR 1234", null,
-            _bank, _unclassifiedExpense, _unclassifiedIncome, Eur(-2_000), "  eb:def  ", Now).Value;
-
-        transaction.SourceKind.Should().Be(TransactionSourceKind.Import);
-        transaction.ExternalRef.Should().Be("eb:def");
-    }
-
-    [Fact]
-    public void An_import_without_an_external_reference_is_rejected()
-    {
-        // The external reference is the dedup key. Without one, re-running the sync would
-        // duplicate the line, so an import that cannot be identified must not be built at all.
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR 1234", null,
-            _bank, _unclassifiedExpense, _unclassifiedIncome, Eur(-2_000), "   ", Now)
-            .Error!.Code.Should().Be("transaction.external_ref_required");
-    }
-
-    [Fact]
-    public void An_imported_zero_amount_is_rejected()
-    {
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "Nothing", null,
-            _bank, _unclassifiedExpense, _unclassifiedIncome, Eur(0), "eb:zero", Now)
-            .Error!.Code.Should().Be("transaction.zero_amount");
-    }
-
-    [Fact]
-    public void An_import_into_something_that_is_not_an_asset_account_is_rejected()
-    {
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "Oops", null,
-            _food, _unclassifiedExpense, _unclassifiedIncome, Eur(-2_000), "eb:oops", Now)
-            .Error!.Code.Should().Be("account.kind_role_mismatch");
-    }
-
-    [Fact]
-    public void An_import_whose_unclassified_counterparties_are_the_wrong_kind_is_rejected()
-    {
-        // Swapped: the expense slot is handed an Income category and vice versa. Both directions
-        // are checked up front, not only the one this particular amount's sign would reach.
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            _bank, _unclassifiedIncome, _unclassifiedExpense, Eur(-2_000), "eb:swap", Now)
-            .Error!.Code.Should().Be("account.not_a_category");
-
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "Salary", null,
-            _bank, _unclassifiedIncome, _unclassifiedExpense, Eur(300_000), "eb:swap2", Now)
-            .Error!.Code.Should().Be("account.not_a_category");
-    }
-
-    [Fact]
-    public void An_import_against_a_non_category_counterparty_is_rejected()
-    {
-        LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            _bank, _savings, _unclassifiedIncome, Eur(-2_000), "eb:nc", Now)
-            .Error!.Code.Should().Be("account.not_a_category");
-    }
-
-    [Fact]
-    public void Imported_throws_for_any_null_argument()
-    {
-        var actNullBank = () => LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            null!, _unclassifiedExpense, _unclassifiedIncome, Eur(-2_000), "eb:n", Now);
-        var actNullExpense = () => LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            _bank, null!, _unclassifiedIncome, Eur(-2_000), "eb:n", Now);
-        var actNullIncome = () => LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            _bank, _unclassifiedExpense, null!, Eur(-2_000), "eb:n", Now);
-        var actNullAmount = () => LedgerTemplates.Imported(
-            Guid.CreateVersion7(Now), Today, "SPAR", null,
-            _bank, _unclassifiedExpense, _unclassifiedIncome, null!, "eb:n", Now);
-
-        actNullBank.Should().Throw<ArgumentNullException>();
-        actNullExpense.Should().Throw<ArgumentNullException>();
-        actNullIncome.Should().Throw<ArgumentNullException>();
         actNullAmount.Should().Throw<ArgumentNullException>();
     }
 }
