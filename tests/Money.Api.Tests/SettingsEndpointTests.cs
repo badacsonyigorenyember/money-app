@@ -11,6 +11,17 @@ public sealed class SettingsEndpointTests : IClassFixture<ApiFactory>
     public SettingsEndpointTests(ApiFactory factory) => _factory = factory;
 
     [Fact]
+    public async Task The_settings_page_renders_the_restore_card()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var page = await client.GetStringAsync("/settings", CancellationToken.None);
+
+        page.Should().Contain("Restore from a backup");
+        page.Should().NotContain("posting", "double-entry vocabulary never reaches a view");
+    }
+
+    [Fact]
     public async Task Settings_can_be_read_and_written()
     {
         using var client = _factory.CreateApiClient();

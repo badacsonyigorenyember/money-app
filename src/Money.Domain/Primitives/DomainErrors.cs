@@ -204,6 +204,20 @@ public static class DomainErrors
 
         public static DomainError UnsupportedExportFormat(string format) =>
             new("admin.unsupported_export_format", $"'{format}' is not a supported export format.");
+
+        public static DomainError InvalidBackupName(string fileName) =>
+            new("admin.invalid_backup_name",
+                $"'{fileName}' is not the name of a backup. Pick one from the list of backups.");
+
+        // "admin.backup.not_found", not "admin.backup_not_found": DomainErrorResults maps a code
+        // ending in ".not_found" to 404, and an underscore there would come out as a 400.
+        public static DomainError BackupNotFound(string fileName) =>
+            new("admin.backup.not_found", $"There is no backup called '{fileName}'.");
+
+        public static DomainError BackupNotRestorable(string fileName) =>
+            new("admin.backup_not_restorable",
+                $"'{fileName}' cannot be restored from: it is damaged, or it is not a backup of " +
+                "this app's data.");
     }
 
     public static class Import

@@ -80,4 +80,68 @@ public sealed class SettingsUseCaseTests : IDisposable
                                                    "Monday", 10), CancellationToken.None))
             .Error!.Code.Should().Be("currency.unknown");
     }
+
+    [Fact]
+    public async Task A_fresh_database_reports_no_window_state()
+    {
+        var state = await new GetWindowStateHandler(_harness.Settings)
+            .HandleAsync(CancellationToken.None);
+
+        state.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Window_state_round_trips_through_save_then_get()
+    {
+        var saved = await new SaveWindowStateHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new WindowState(1024, 768, 120, 40), CancellationToken.None);
+
+        saved.IsSuccess.Should().BeTrue();
+
+        var read = await new GetWindowStateHandler(_harness.Settings).HandleAsync(CancellationToken.None);
+        read.Should().Be(new WindowState(1024, 768, 120, 40));
+    }
+
+    [Fact]
+    public async Task Saving_window_state_leaves_the_business_settings_untouched()
+    {
+        (await new UpdateSettingsHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new UpdateSettingsRequest("HUF", "DayOfMonth", 25, "Europe/Budapest",
+                                                   "Sunday", 5), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        await new SaveWindowStateHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new WindowState(800, 600, 10, 20), CancellationToken.None);
+
+        var read = await new GetSettingsHandler(_harness.Settings).HandleAsync(CancellationToken.None);
+        read.BaseCurrencyCode.Should().Be("HUF");
+        read.PeriodAnchor.Should().Be("DayOfMonth");
+        read.PeriodAnchorDay.Should().Be(25);
+        read.FirstDayOfWeek.Should().Be("Sunday");
+        read.BackupRetentionCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Saving_the_business_settings_leaves_window_state_untouched()
+    {
+        await new SaveWindowStateHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new WindowState(800, 600, 10, 20), CancellationToken.None);
+
+        (await new UpdateSettingsHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new UpdateSettingsRequest("HUF", "CalendarMonth", 1, "Europe/Budapest",
+                                                   "Monday", 7), CancellationToken.None))
+            .IsSuccess.Should().BeTrue();
+
+        var read = await new GetWindowStateHandler(_harness.Settings).HandleAsync(CancellationToken.None);
+        read.Should().Be(new WindowState(800, 600, 10, 20));
+    }
+
+    [Fact]
+    public async Task A_window_with_no_size_is_rejected()
+    {
+        var result = await new SaveWindowStateHandler(_harness.Settings, _harness.UnitOfWork)
+            .HandleAsync(new WindowState(0, 600, 10, 20), CancellationToken.None);
+
+        result.Error!.Code.Should().Be("window.invalid_size");
+    }
 }

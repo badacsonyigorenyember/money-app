@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Money.Application.Contracts;
 
 namespace Money.Api.Tests;
@@ -73,6 +74,51 @@ public sealed class AdminEndpointTests : IClassFixture<ApiFactory>
 
         json.Should().NotContain("posting", "the export is a user-facing document");
         json.Should().Contain("entries");
+    }
+
+    [Fact]
+    public async Task Listing_backups_is_a_two_hundred()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var response = await client.GetAsync("/api/v1/admin/backups", CancellationToken.None);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadFromJsonAsync<BackupResultDto[]>(CancellationToken.None))
+            .Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Restoring_a_backup_that_does_not_exist_is_a_four_hundred_and_four()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var response = await client.PostAsJsonAsync("/api/v1/admin/restore",
+            new { fileName = "money-19990101-000000.db" }, CancellationToken.None);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await CodeOf(response)).Should().Be("admin.backup.not_found");
+    }
+
+    [Fact]
+    public async Task Restoring_a_name_that_escapes_the_backups_folder_is_a_four_hundred()
+    {
+        using var client = _factory.CreateApiClient();
+
+        var response = await client.PostAsJsonAsync("/api/v1/admin/restore",
+            new { fileName = @"..\money.db" }, CancellationToken.None);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await CodeOf(response)).Should().Be("admin.invalid_backup_name");
+    }
+
+    private static async Task<string?> CodeOf(HttpResponseMessage response)
+    {
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(CancellationToken.None));
+        return document.RootElement.GetProperty("code").GetString();
     }
 
     // A fresh ApiFactory ledger has no transactions, and the export's per-transaction "entries"

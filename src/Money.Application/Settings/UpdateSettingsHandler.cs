@@ -22,10 +22,14 @@ public sealed class UpdateSettingsHandler(ISettingsRepository settings, IUnitOfW
 
         var existing = await settings.GetAsync(cancellationToken);
 
+        // FirstRunCompleted and the window rectangle are not on this screen; carry them through
+        // so saving from Settings cannot blank them.
         var updated = new AppSettings(
             currency.Value, definition.Value,
             Math.Clamp(request.BackupRetentionCount, 1, 100),
-            existing?.FirstRunCompleted ?? false);
+            existing?.FirstRunCompleted ?? false,
+            existing?.WindowWidth, existing?.WindowHeight,
+            existing?.WindowX, existing?.WindowY);
 
         await settings.SaveAsync(updated, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -43,3 +43,45 @@ jobs:
         with:
           name: stryker-report
           path: '**/StrykerOutput/**/reports/**'
+
+  # Spec section 14's mitigation for "single-file publish breaks EF Core or Razor":
+  # the smoke test runs the published executable, not `dotnet run`.
+  publish-desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Publish
+        run: dotnet publish src/Money.Desktop -c Release -o publish
+      - name: Static files survived the publish
+        shell: pwsh
+        run: |
+          if (-not (Test-Path publish/wwwroot/app.css)) { throw 'publish/wwwroot/app.css is missing' }
+      - name: Smoke test the published executable
+        shell: pwsh
+        env:
+          MONEYAPP_DATA_DIR: ${{ runner.temp }}\smoke-data
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:MONEYAPP_DATA_DIR | Out-Null
+          $app = Start-Process -FilePath publish\Money.exe `
+            -ArgumentList '--server', '--urls', 'http://127.0.0.1:5099' -PassThru
+          try {
+            $ok = $false
+            foreach ($attempt in 1..60) {
+              if ($app.HasExited) { throw "Money.exe exited early with code $($app.ExitCode)" }
+              try {
+                $r = Invoke-WebRequest -Uri http://127.0.0.1:5099/health -UseBasicParsing -TimeoutSec 5
+                if ($r.StatusCode -eq 200) { $ok = $true; break }
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $ok) { throw '/health did not answer 200 within 60 seconds' }
+            Write-Host '/health returned 200'
+          } finally {
+            if (-not $app.HasExited) { $app.Kill(); $app.WaitForExit() }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: money-desktop
+          path: publish/

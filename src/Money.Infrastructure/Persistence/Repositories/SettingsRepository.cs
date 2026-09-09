@@ -28,7 +28,8 @@ public sealed class SettingsRepository(MoneyDbContext context) : ISettingsReposi
             anchor, row.TimeZoneId, Enum.Parse<DayOfWeek>(row.FirstDayOfWeek)).Value;
 
         return new AppSettings(
-            row.BaseCurrencyCode, definition, row.BackupRetentionCount, row.FirstRunCompleted);
+            row.BaseCurrencyCode, definition, row.BackupRetentionCount, row.FirstRunCompleted,
+            row.WindowWidth, row.WindowHeight, row.WindowX, row.WindowY);
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
@@ -49,6 +50,10 @@ public sealed class SettingsRepository(MoneyDbContext context) : ISettingsReposi
         row.FirstDayOfWeek = settings.PeriodDefinition.FirstDayOfWeek.ToString();
         row.BackupRetentionCount = settings.BackupRetentionCount;
         row.FirstRunCompleted = settings.FirstRunCompleted;
+        row.WindowWidth = settings.WindowWidth;
+        row.WindowHeight = settings.WindowHeight;
+        row.WindowX = settings.WindowX;
+        row.WindowY = settings.WindowY;
 
         if (isNew) context.Settings.Add(row);
     }

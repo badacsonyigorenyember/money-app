@@ -11,12 +11,16 @@ public sealed class SettingsModel(
     GetSettingsHandler get,
     UpdateSettingsHandler update,
     CreateBackupHandler backup,
+    ListBackupsHandler listBackups,
+    StageRestoreHandler stageRestore,
+    IHostApplicationLifetime lifetime,
     RunIntegrityCheckHandler integrity) : PageModel
 {
     public SettingsDto Current { get; private set; } = null!;
     public string? Message { get; private set; }
     public string? ErrorMessage { get; private set; }
     public IntegrityReportDto? Report { get; private set; }
+    public IReadOnlyList<BackupResultDto> Backups { get; private set; } = [];
 
     [BindProperty] public UpdateSettingsRequest Form { get; set; } = null!;
 
@@ -57,6 +61,23 @@ public sealed class SettingsModel(
         return Page();
     }
 
+    /// <summary>
+    /// Staging only: the file is swapped at the next start, before anything opens the database.
+    /// Stopping the app is therefore part of the operation, not a side effect of it - the desktop
+    /// host relaunches, and in server mode the operator restarts.
+    /// </summary>
+    public async Task<IActionResult> OnPostRestoreAsync(string? fileName, CancellationToken cancellationToken)
+    {
+        var result = stageRestore.Handle(fileName);
+        if (result.IsFailure) ErrorMessage = result.Error!.Message;
+        else Message = $"Restoring from {fileName}. The app is closing to finish the job — "
+                     + "open it again and your data will be as it was in that backup.";
+
+        await LoadAsync(cancellationToken);
+        if (result.IsSuccess) lifetime.StopApplication();
+        return Page();
+    }
+
     public async Task<IActionResult> OnPostIntegrityCheckAsync(CancellationToken cancellationToken)
     {
         Report = await integrity.HandleAsync(cancellationToken);
@@ -67,6 +88,7 @@ public sealed class SettingsModel(
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
         Current = await get.HandleAsync(cancellationToken);
+        Backups = await listBackups.HandleAsync(cancellationToken);
         Form ??= new UpdateSettingsRequest(
             Current.BaseCurrencyCode, Current.PeriodAnchor, Current.PeriodAnchorDay,
             Current.TimeZoneId, Current.FirstDayOfWeek, Current.BackupRetentionCount);

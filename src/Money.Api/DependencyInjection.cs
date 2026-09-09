@@ -33,6 +33,11 @@ public static class DependencyInjection
 
         Directory.CreateDirectory(dataDirectory);
 
+        // A restore staged from the Settings screen is applied here, before AddDbContext and
+        // therefore before anything can open the database: swapping the file under a live
+        // connection is what makes restore the one operation that can destroy a ledger.
+        DatabaseRestore.ApplyPending(dataDirectory, new SystemClock().UtcNow);
+
         var connectionString = DataDirectory.ConnectionStringFor(
             DataDirectory.DatabasePathIn(dataDirectory));
 
@@ -58,6 +63,8 @@ public static class DependencyInjection
             new BackupOptions(dataDirectory, RetentionCount: 10),
             provider.GetRequiredService<ISettingsRepository>(),
             provider.GetRequiredService<IClock>()));
+
+        services.AddSingleton<IRestoreStaging>(new DatabaseRestore(dataDirectory));
 
         services.AddScoped<JsonExportService>();
         services.AddScoped<CsvExportService>();
@@ -91,8 +98,12 @@ public static class DependencyInjection
         services.AddScoped<TransferHandler>();
         services.AddScoped<GetSettingsHandler>();
         services.AddScoped<UpdateSettingsHandler>();
+        services.AddScoped<GetWindowStateHandler>();
+        services.AddScoped<SaveWindowStateHandler>();
         services.AddScoped<CompleteFirstRunSetupHandler>();
         services.AddScoped<CreateBackupHandler>();
+        services.AddScoped<ListBackupsHandler>();
+        services.AddScoped<StageRestoreHandler>();
         services.AddScoped<RunIntegrityCheckHandler>();
         services.AddScoped<ImportBankTransactionsHandler>();
         services.AddScoped<CreateRecurringRuleHandler>();

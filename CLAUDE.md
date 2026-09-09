@@ -7,9 +7,16 @@ Full design: [docs/superpowers/specs/2026-09-01-money-tracker-design.md](docs/su
 That spec is the contract — this file is the subset you must not violate while
 coding. When the two disagree, the spec wins and this file gets fixed.
 
-**Status:** spec approved, implementation not started. The solution, projects
-and test commands below do not exist yet; create them as described, do not
-invent a different shape.
+**Status:** implemented and running. Phases 0–2 shipped the ledger core, SQLite
+persistence and the HTMX shell — a usable manual expense tracker. On top of
+that came recurring entries (phase 3), bank import, multi-currency accounts and
+a home page you record from and step through a month at a time. Phase 8
+(single-file publish, the WebView2 desktop shell, single-instance guard,
+window state and restore-from-backup) is the most recent. Still unbuilt:
+budgets (4), pockets (5), investments and accrual (6), the reports dashboard
+(7), and server mode (9) — `--server` today means "no window", not the
+Dockerfile, cookie auth and rate limiting that phase promises. The solution,
+projects and test commands below exist; match the shape that is there.
 
 ---
 

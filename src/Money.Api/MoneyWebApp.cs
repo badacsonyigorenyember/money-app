@@ -10,6 +10,18 @@ namespace Money.Api;
 /// </summary>
 public static class MoneyWebApp
 {
+    private const string ServerFlag = "--server";
+
+    /// <summary>
+    /// The arguments configuration is allowed to see. <c>--server</c> is ours, and the command-line
+    /// configuration provider has no notion of a valueless flag: it reads
+    /// <c>--server --urls http://127.0.0.1:5099</c> as the key <c>--server</c> with the value
+    /// <c>--urls</c>, so the real address pair vanishes and Kestrel silently falls back to its
+    /// default port. Strip the flag here, once, rather than in each entry point.
+    /// </summary>
+    public static string[] ConfigurationArgs(string[] args) =>
+        [.. args.Where(arg => !ServerFlag.Equals(arg, StringComparison.OrdinalIgnoreCase))];
+
     /// <param name="options">
     /// Money.Desktop is the entry assembly when hosted in WebView2, so it has to name Money.Api
     /// explicitly - that is where the compiled Razor Pages live - and pin the content root to the
@@ -17,12 +29,20 @@ public static class MoneyWebApp
     /// </param>
     public static async Task<WebApplication> CreateAsync(WebApplicationOptions options)
     {
-        var builder = WebApplication.CreateBuilder(options);
         var args = options.Args ?? [];
 
-        var mode = args.Contains("--server", StringComparer.OrdinalIgnoreCase)
+        var mode = args.Contains(ServerFlag, StringComparer.OrdinalIgnoreCase)
             ? HostingMode.Server
             : HostingMode.Desktop;
+
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = ConfigurationArgs(args),
+            EnvironmentName = options.EnvironmentName,
+            ApplicationName = options.ApplicationName,
+            ContentRootPath = options.ContentRootPath,
+            WebRootPath = options.WebRootPath
+        });
 
         builder.Services.AddMoneyApp(builder.Configuration, mode);
         builder.Services.AddRazorPages();

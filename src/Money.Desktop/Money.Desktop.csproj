@@ -20,6 +20,10 @@
     <!-- The WebView2 package ships a WPF control too; without this its WindowsBase 5.0 reference conflicts. -->
     <UseWPF>true</UseWPF>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- CI's build-and-test job runs on ubuntu-latest and builds the whole solution. Without this,
+         a net9.0-windows project fails there with NETSDK1100. Compiling is all Linux needs to do;
+         the packaged exe is produced and smoke-tested by the windows-latest job. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
@@ -30,6 +34,25 @@
     <AssemblyName>Money</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!--
+      Trimming stays off deliberately (spec section 11). EF Core and Razor rely on
+      reflection, so a trimmed build fails at runtime in ways that are painful to
+      diagnose. The size cost is acceptable for a personal application.
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <ApplicationIcon>money.ico</ApplicationIcon>
+    <!-- Drops the referenced projects' .pdb and the WebView2 .xml doc files from the publish output. -->
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Product>Money</Product>
+    <AssemblyTitle>Money — personal money tracker</AssemblyTitle>
+    <Company>Janos Toth</Company>
+    <Authors>Janos Toth</Authors>
+    <Copyright>Copyright © Janos Toth</Copyright>
+    <Version>0.8.0</Version>
+    <FileVersion>0.8.0.0</FileVersion>
   </PropertyGroup>
 
 </Project>
