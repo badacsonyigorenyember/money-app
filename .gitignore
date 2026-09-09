@@ -35,3 +35,10 @@ desktop.ini
 
 # Published desktop app
 dist/
+
+# Agent tooling — machine-local, not part of the app
+.agents/
+skills-lock.json
+.claude/settings.local.json
+.claude/review-run.cmd
+.claude/skills/

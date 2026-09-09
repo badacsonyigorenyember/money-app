@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "money-headless",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set MONEYAPP_DATA_DIR=%LOCALAPPDATA%\Temp\money-preview-data&& dotnet run --project src/Money.Desktop/Money.Desktop.csproj -- --headless --urls http://127.0.0.1:5247"
+      ],
+      "port": 5247
+    }
+  ]
+}
