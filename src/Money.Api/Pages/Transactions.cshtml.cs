@@ -268,7 +268,9 @@ public sealed class TransactionsModel(
         Page = await list.HandleAsync(
             new TransactionQuery(
                 Overview.Start, Overview.EndInclusive,
-                AccountId, CategoryId, Q, IncludeVoided, null, 200),
+                // No cursor, no ceiling: the month is the page, so the table is as tall as the
+                // month is busy.
+                AccountId, CategoryId, Q, IncludeVoided, null, int.MaxValue),
             cancellationToken);
 
         Accounts = (await accounts.HandleAsync(null, null, false, cancellationToken))

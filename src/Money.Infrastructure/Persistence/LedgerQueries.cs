@@ -127,7 +127,9 @@ public sealed class LedgerQueries(MoneyDbContext context) : ILedgerQueries
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var limit = Math.Clamp(query.Limit, 1, 200);
+        // The window asks for a whole month at a time and has no "next page" control, so the
+        // ceiling is only here to keep Take(limit + 1) from overflowing on int.MaxValue.
+        var limit = Math.Clamp(query.Limit, 1, 100_000);
 
         var transactions = context.Transactions.AsQueryable();
 

@@ -216,9 +216,14 @@ Unconfigured, it reports `bankfeed.not_configured` and changes nothing. Setup is
 Free-text search over description and payee, and **Show removed**. The month is the filter;
 there are no date boxes, because the arrows above are the date control.
 
-Date, description, category, account, amount, and a **Remove** button, newest first. Up to 200
-entries — the API pages by cursor, the page has no "next" button, so a month with more than 200
-entries is cut off at 200.
+Date, description, category, account, amount, and a **Remove** button, newest first. The whole
+month, however busy it is: there is no "next page" button because there is nothing to page to, and
+the table is exactly as tall as the month's entries make it.
+
+Stepping to another month therefore changes the table's height. It does not move you: whatever you
+were looking at stays where it is on screen, and only the rows change. The one exception is being
+parked at the very bottom of a busy month and stepping to a much quieter one — that position no
+longer exists in the shorter page, so you land at its new bottom.
 
 **Remove voids, it does not delete.** The transaction stays in the database marked voided with a
 reason, stops counting toward every balance and report, and reappears struck through when you tick

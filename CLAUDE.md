@@ -158,6 +158,48 @@ Also non-negotiable at the boundaries:
 
 ---
 
+## Swapping data into a page
+
+Every list on screen is swapped in by HTMX, and any swap that changes how much
+content the page holds can move the reader. Learned the hard way on the month
+stepper, and the same trap is waiting for every future list that grows and
+shrinks with its data:
+
+1. **A list is never given a height.** No `min-height`, no fixed height, no
+   space reserved "so the page does not jump". A table is exactly as tall as
+   its rows are. Reserving height trades a jump for a blank gap that outlives
+   the swap - worse, because the reader can see it and cannot get rid of it.
+   Releasing that reserve later from a scroll handler does not save it: on a
+   page the reader never scrolls, the gap simply stays.
+2. **Restore the scroll position instead.** A swap that replaces
+   `<main id="content">` (`hx-target="#content" hx-swap="outerHTML"`, which is
+   what `hx-boost` on the month arrows and the filter form does) leaves the
+   document briefly near-empty, so the browser clamps scroll to the top of what
+   is left. That clamp *is* the jump - nothing in htmx caused it. Read
+   `window.scrollY` on `htmx:beforeSwap` and put it back on **both**
+   `htmx:afterSwap` and `htmx:afterSettle`: htmx leaves ~20ms between the two,
+   long enough for the clamp to be seen.
+
+The handler lives once, at the foot of `_Layout.cshtml`, and keys on the swap
+target's id being `content`. Any new swap of that target inherits it - do not
+add a second copy, and do not reach for a per-page variant.
+
+`show:none` in `hx-swap` suppresses htmx's own scroll-to-top on a boosted link.
+It does **not** suppress the browser's clamp. Both are needed; neither replaces
+the other.
+
+The one case where both rules cannot hold: at the very bottom of a long month,
+stepping to a much shorter one. That scroll position does not exist in the
+shorter document, so the reader lands at its new bottom. Accepted - the only
+way out is the reserved blank space rule 1 forbids.
+
+Verify a change here in the running window, not by reasoning: measure
+`window.scrollY` and `document.documentElement.scrollHeight` across the swap.
+See [docs/running-locally.md](docs/running-locally.md) for a scratch instance
+to do it in.
+
+---
+
 ## Test commands
 
 ```bash

@@ -6,6 +6,7 @@ using Money.Domain.Money;
 using Money.Domain.Periods;
 using Money.Infrastructure.Persistence;
 using Money.TestSupport;
+using MoneyValue = Money.Domain.Money.Money;
 
 namespace Money.Application.Tests.Persistence;
 
@@ -152,6 +153,39 @@ public sealed class LedgerQueriesTests
 
         seen.Should().OnlyHaveUniqueItems();
         seen.Should().HaveCount(ledger.Transactions.Count);
+    }
+
+    [Fact]
+    public async Task The_transaction_list_returns_a_whole_busy_month_in_one_page()
+    {
+        using var fixture = new SqliteFixture();
+        using var context = fixture.NewContext();
+        var ledger = LedgerGen.Ledgers.Single();
+        await LedgerSeeder.SeedAsync(context, ledger);
+
+        // The window has no "next page" control: one month is one screen, however busy the month.
+        // Outside LedgerGen's own 2026 range, so the count is exactly what this test seeded.
+        var day = new DateOnly(2027, 3, 15);
+        var origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        context.Transactions.AddRange(Enumerable.Range(0, 260).Select(i =>
+            Transaction.Create(
+                Guid.CreateVersion7(origin), day, $"Coffee {i}", null,
+                TransactionSourceKind.Manual, null,
+                [
+                    new PostingDraft(ledger.Groceries.Id, MoneyValue.Of(250, Currency.Eur)),
+                    new PostingDraft(ledger.Bank.Id, MoneyValue.Of(-250, Currency.Eur))
+                ],
+                ledger.AccountsById, origin).Value));
+
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var page = await new LedgerQueries(context).ListAsync(new TransactionQuery(
+            day, day, null, null, null, IncludeVoided: false, null, int.MaxValue));
+
+        page.Rows.Should().HaveCount(260);
+        page.NextCursor.Should().BeNull();
     }
 
     [Fact]

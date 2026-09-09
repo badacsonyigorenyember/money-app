@@ -626,7 +626,7 @@ server mode later installs to a home screen without further work.
 | Screen | Contents |
 |---|---|
 | **Dashboard** | Current period: income, spending, net, delta vs previous period. Spend-by-category donut. Budget bars with state colours. Pocket progress bars. Net worth and investment value. Upcoming recurring items in the next 14 days. Pending confirmations needing action. |
-| **Transactions** | Infinite-scroll list, date/account/category/text filters, inline quick-add row, split editor, void action. |
+| **Transactions** | One whole month per screen, newest first — no paging control and no infinite scroll, so the table is as tall as the month is busy. Date/account/category/text filters, inline quick-add row, split editor, void action. Swapping a month must not move the reader: see "Swapping data into a page" in CLAUDE.md. |
 | **Categories** | Tree editor: create, rename, reparent, archive, colour, icon. |
 | **Accounts** | Bank/cash accounts with balances, opening-balance wizard, archive. |
 | **Budgets** | One row per budget: limit, spent, remaining, state; period switcher. |

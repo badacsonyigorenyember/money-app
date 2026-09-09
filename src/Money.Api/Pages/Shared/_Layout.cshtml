@@ -88,72 +88,35 @@
             }).observe(topbar);
         })();
 
-        // Stepping between months changes the table, not the page. A month with fewer entries
-        // makes a shorter list, which pulls everything below it up and - at the foot of a long
-        // page - shortens the document out from under the scroll position, so the browser moves
-        // the reader. Holding the list open at the height it already had stops both: what is on
-        // screen stays where it is and only the rows change. The table is never given a height
-        // of its own - it still grows and shrinks with the month - and the reserve is let go
-        // again as soon as that can happen unseen.
+        // Stepping between months replaces the whole of <main>, so the document is briefly empty
+        // and the browser clamps the scroll position to the top of what is left. Putting it back
+        // leaves the reader looking at the same part of the page. The list is never given a
+        // height of its own - it stays exactly as tall as the month is busy - so on a month short
+        // enough to make the whole page shorter than the old position, the browser wins and the
+        // reader lands at the new bottom. That is the one case the two cannot both be had.
         (function () {
-            var reserve = 0, was = 0, y = 0;
-
-            function rows() { return document.getElementById('rows'); }
+            var y = 0;
 
             function ours(event) {
                 var target = (event.detail && event.detail.target) || event.target;
                 return !!target && target.id === 'content';
             }
 
-            function hold() {
-                var list = rows();
-                if (!list) return;
-
-                if (reserve) list.style.minHeight = was + 'px';
-                if (window.scrollY !== y) window.scrollTo(0, y);
-            }
+            function restore() { if (window.scrollY !== y) window.scrollTo(0, y); }
 
             document.body.addEventListener('htmx:beforeSwap', function (event) {
-                if (!ours(event)) return;
-
-                was = rows() ? rows().offsetHeight : 0;
-                y = window.scrollY;
+                if (ours(event)) y = window.scrollY;
             });
 
+            // Both, not just the settle: htmx leaves ~20ms between them, long enough for a swap
+            // back to the top to be seen.
             document.body.addEventListener('htmx:afterSwap', function (event) {
-                if (!ours(event)) return;
-
-                var list = rows();
-                if (!list) return;
-
-                // htmx carries the outgoing element's inline style onto the incoming one for the
-                // length of its settle step, so the reserve from the last month is still on it
-                // here. Clear it first or the list measures as the height it is being held at.
-                list.style.minHeight = '';
-                reserve = list.offsetHeight < was ? was - list.offsetHeight : 0;
-                hold();
+                if (ours(event)) restore();
             });
 
-            // And again once htmx has settled: the last thing it does is put the swapped-in
-            // element's own attributes back, which takes the reserve with it.
             document.body.addEventListener('htmx:afterSettle', function (event) {
-                if (ours(event)) hold();
+                if (ours(event)) restore();
             });
-
-            window.addEventListener('scroll', function () {
-                if (!reserve) return;
-
-                // Two things have to be true before letting go: the held-open space sits
-                // entirely below the fold, so nothing on screen shifts, and the page is still
-                // long enough without it, so the browser has no reason to pull the reader up.
-                var fold = window.scrollY + window.innerHeight;
-
-                if (rows().getBoundingClientRect().bottom - reserve >= window.innerHeight
-                    && document.documentElement.scrollHeight - reserve >= fold) {
-                    rows().style.minHeight = '';
-                    reserve = 0;
-                }
-            }, { passive: true });
         })();
     </script>
 </body>
