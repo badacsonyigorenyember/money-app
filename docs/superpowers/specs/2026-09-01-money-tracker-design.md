@@ -42,8 +42,8 @@ Recorded explicitly so scope creep is visible:
 | Bank / CSV statement import | **Shipped after approval, outside the original v1 line.** Enable Banking (PSD2 AISP) read-only feed for one linked account; CSV import still deferred | `Transaction.SourceKind = Import` + `ExternalRef`, guarded by `UX_Transactions_Import_ExternalRef` |
 | Multi-currency UI | Single currency in practice | Yes — currency code stored on every amount from day one |
 | Credit cards / loans UI | Not requested | Yes — `AccountKind.Liability` exists in the schema |
-| Multi-user / accounts / login | Single-user desktop app | Yes — `ICurrentUser` seam, no owner columns |
-| Mobile native app | Responsive web UI + PWA manifest is enough | Yes — versioned REST API with OpenAPI |
+| Multi-user / accounts / login | Single-user desktop app | No. The `ICurrentUser` seam was removed on 9 September 2026; there are still no owner columns to add one back around. |
+| Mobile native app | Not wanted; this is a desktop app | No. The REST API, OpenAPI document and PWA manifest that were the affordance were removed on 9 September 2026. |
 | Receipt attachments, OCR | Not requested | No |
 
 ---
@@ -70,7 +70,7 @@ Recorded explicitly so scope creep is visible:
 | D9 | Amounts stored as SQLite `INTEGER`; rates as `NUMERIC`/`TEXT` | Never `REAL`. |
 | D10 | Database lives in `%APPDATA%`, **not** next to the executable | The project folder is on the Desktop, which is commonly OneDrive-synced. A cloud-synced SQLite file in WAL mode is a corruption risk. |
 | D11 | Transactions are **voided, never deleted**; reference data is archived, and deleting an archived account or category never touches its transactions | Preserves an audit trail and keeps historical reports intact. Deleting erases the rows outright when nothing refers to them, and otherwise flags them `IsDeleted` so history can still name them. |
-| D12 | `ICurrentUser` seam now, but **no `OwnerId` columns** | Adding one column to a single-user database later is trivial; speculative multi-tenancy is not. |
+| D12 | ~~`ICurrentUser` seam now~~, and **no `OwnerId` columns** | The seam was an interface with one implementation nobody resolved, and went on 9 September 2026 with the rest of the server-mode scaffolding. The half that mattered stands: adding one column to a single-user database later is trivial; speculative multi-tenancy is not. |
 
 ---
 
@@ -79,7 +79,7 @@ Recorded explicitly so scope creep is visible:
 | Layer | Choice |
 |---|---|
 | Language / runtime | C# / .NET 9 |
-| API | ASP.NET Core Minimal API |
+| API | none - the window calls Razor page handlers directly |
 | UI | Razor Pages + HTMX + vendored Chart.js (no Node build step) |
 | Persistence | EF Core 9 + SQLite (WAL) |
 | Desktop shell | WebView2 host process starting Kestrel on loopback |
@@ -447,8 +447,8 @@ src/
   Money.Application/     use cases (commands + queries), ports, validation, DTOs
   Money.Infrastructure/  EF Core DbContext, migrations, repositories,
                          SystemClock, backup, export
-  Money.Api/             Minimal API endpoints, Razor Pages + HTMX views,
-                         OpenAPI, Problem Details, composition root
+  Money.Api/             Razor Pages + HTMX views, page handlers,
+                         Problem Details, composition root
   Money.Desktop/         WebView2 host: boots Kestrel on loopback, opens window
 tests/
   Money.Domain.Tests/          fast unit + property tests, no I/O
@@ -474,10 +474,11 @@ Enforced by `Money.Architecture.Tests`, which fails the build if:
 ### Cross-cutting
 
 - **Time.** `IClock` is injected everywhere. There is no ambient time.
-- **Identity.** `ICurrentUser` returns a fixed `LocalUser` in desktop mode.
-  No `OwnerId` columns exist yet.
+- **Identity.** None. One machine, one file, no login, no `OwnerId` columns.
 - **Validation.** Domain constructors reject invalid states; the application
-  layer maps domain errors to RFC 9457 Problem Details responses.
+  layer returns `Result<T>`, and the page handler that asked puts the error
+  message on the screen. Problem Details stays registered for what the
+  framework raises on its own, such as a failed antiforgery check.
 - **Errors.** A `Result<T>` type for expected failures (validation,
   over-allocation, budget overlap); exceptions only for programmer error.
 
@@ -526,21 +527,25 @@ integrity check that runs on startup and on demand from the admin screen.
 
 - EF Core migrations run at startup, **after** an automatic pre-migration
   backup copy.
-- `POST /api/v1/admin/backup` uses SQLite's Online Backup API to produce
-  `money-YYYYMMDD-HHmmss.db`. Retention count is a setting; default 10.
-- `GET /api/v1/admin/export?format=json` emits the entire ledger, accounts,
-  budgets, pockets and investment terms in a documented, re-importable shape.
-  `format=csv` emits a flat postings table for spreadsheet use.
+- The Settings screen's **Back up now** uses SQLite's Online Backup API to
+  produce `money-YYYYMMDD-HHmmss.db`. Retention count is a setting; default 10.
+- Settings' **Download JSON** emits the entire ledger, accounts, budgets,
+  pockets and investment terms in a documented, re-importable shape. **Download
+  CSV** emits a flat postings table for spreadsheet use.
 - A restore path exists in the admin screen: pick a backup, the app validates
   it, swaps the file and restarts.
 
 ---
 
-## 9. API surface
+## 9. Operations
 
-REST under `/api/v1`, versioned from day one because a phone client will pin a
-version. Errors use RFC 9457 Problem Details. An OpenAPI document is generated
-and served at `/openapi/v1.json`.
+**There is no HTTP API.** One drafted here, `/api/v1` with an OpenAPI document,
+was built through phase 3 and removed on 9 September 2026: the desktop window
+was its only client and it never called it, so it was thirty routes and 1,300
+lines of tests guarding a surface nobody used. Every operation below is a page
+handler (`/transactions?handler=QuickAdd`) calling the same application-layer
+use case the route used to call. The list stays as the inventory of what the
+app has to be able to do; the paths are how it was drafted, not what it serves.
 
 ```
 GET    /api/v1/accounts                     ?kind=&role=&includeArchived=
@@ -603,9 +608,9 @@ POST   /api/v1/admin/integrity-check
 GET    /health
 ```
 
-`Idempotency-Key` on `POST /transactions` matters as soon as a phone on a
-flaky connection retries a request; the cost of supporting it now is one
-table and one middleware.
+The `IdempotencyRecords` table is a leftover of that API: it de-duplicated
+retried POSTs, and nothing reads or writes it now. It is dropped whenever a
+migration is next written.
 
 ---
 
@@ -644,17 +649,20 @@ Subscriptions, Other) that the user can rename or delete.
 
 ---
 
-## 11. Hosting modes
+## 11. Hosting
 
-One binary, two shapes, selected by configuration.
+One binary, one shape: `MoneyApp.exe` binds Kestrel to `127.0.0.1:<free port>`,
+opens a WebView2 window on it, requires no authentication, and enforces a
+single instance with a named mutex.
 
-| Mode | Invocation | Behaviour |
-|---|---|---|
-| **Desktop** (default) | `MoneyApp.exe` | Kestrel binds `127.0.0.1:<free port>`, WebView2 window opens on it, no authentication, single instance enforced by a named mutex. |
-| **Server** (phase 9) | `MoneyApp.exe --server --urls http://0.0.0.0:5080`, or the Docker image | No window. Authentication required. Data directory from `MONEYAPP_DATA_DIR`, mounted as a volume. |
+`--headless` skips the window, the runtime check and the mutex, and takes its
+address from `--urls`. It exists so CI can start the published executable on a
+runner with no browser runtime and wait for `/health`; it is not a server mode
+and there is no authentication behind it.
 
-A `HostingMode` enum read at startup drives service registration. Everything
-below the API layer is identical in both modes.
+There is no JSON API. The window talks to Razor page handlers, those talk to
+the application layer, and nothing else is a client. Serving this UI to another
+machine was phase 9 and is not being built - see section 13.
 
 ### Desktop packaging
 
@@ -744,7 +752,7 @@ Each phase is independently shippable and leaves the application working.
 | 6 | Investments | Terms, `AccrualEngine`, `ProjectionEngine`, investments screen | I7 holds; running accrual twice posts nothing extra; projections never appear in net worth |
 | 7 | Dashboard | Read model, charts, reports endpoints | Golden-file test passes; dashboard renders in under 200 ms on a 10k-transaction dataset |
 | 8 | Packaging | Single-file self-contained publish, WebView2 host, single-instance guard, runtime check, window state persistence | Double-clicking `MoneyApp.exe` on a clean Windows 11 machine opens a working app |
-| 9 | *(later)* Server mode | `--server` flag, Dockerfile, cookie auth, rate limiting, PWA polish | Same image serves the UI to a phone on the LAN |
+| ~~9~~ | ~~Server mode~~ | Dropped 9 September 2026: this is a desktop app, so the flag, the JSON API, the PWA manifest and service worker, and the `HostingMode`/`ICurrentUser` seams that existed only to make it a registration change were all removed. | |
 
 Phases 0–2 are the critical path to something the user can actually use
 daily. Phases 3–7 add the requested features on top of a proven core. Phase 8

@@ -36,11 +36,8 @@ the app is unaffected.
 
 ## Using it
 
-**Sync from bank** on the Transactions page, or:
-
-```bash
-curl -X POST http://localhost:5000/api/v1/import/bank -H "Content-Type: application/json" -d "{\"accountId\":\"<account guid>\"}"
-```
+**Sync from bank** on the Transactions page. That button is the only way in; the JSON API that
+also exposed it was removed on 9 September 2026.
 
 Pressing it twice is safe. Every line carries the bank's `entry_reference` as
 `ExternalRef`, a unique index enforces it, and a re-run reports

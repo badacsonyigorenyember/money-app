@@ -1,13 +1,21 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.DependencyInjection;
+using Money.Application.Accounts;
+using Money.Application.Admin;
+using Money.Application.Categories;
 using Money.Application.Contracts;
+using Money.Application.Transactions;
 
 namespace Money.Api.Tests;
 
 /// <summary>
 /// Spec section 13, phase 2: "A usable manual expense tracker. Round-trip: add expense, see it in
 /// the list, see the balance change." This test is that sentence.
+///
+/// The app has no JSON API - the desktop window is the only client, and it talks to Razor page
+/// handlers - so setting the ledger up and reading it back both go through the same use cases a
+/// page would call. What is asserted over HTTP is what the window actually sees: rendered pages.
 /// </summary>
 public sealed class RoundTripAcceptanceTests
 {
@@ -26,11 +34,7 @@ public sealed class RoundTripAcceptanceTests
         // directions. Posting without it does not exercise a product defect, it just fails
         // Razor Pages' built-in antiforgery filter, so the fetch-then-post dance belongs in the
         // test, not in the product.
-        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
-        var token = Regex.Match(wizardHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
-        token.Should().NotBeNullOrEmpty("the layout should always stamp a token onto <body>");
-
-        var wizard = new FormUrlEncodedContent(new Dictionary<string, string>
+        await CompleteFirstRunAsync(client, new Dictionary<string, string>
         {
             ["BaseCurrencyCode"] = "EUR",
             ["PeriodAnchor"] = "DayOfMonth",
@@ -44,77 +48,47 @@ public sealed class RoundTripAcceptanceTests
             ["SeedStarterCategories"] = "true"
         });
 
-        using var wizardRequest = new HttpRequestMessage(HttpMethod.Post, "/FirstRun") { Content = wizard };
-        wizardRequest.Headers.Add("RequestVerificationToken", token);
+        var accounts = await factory.UseAsync(services =>
+            services.GetRequiredService<ListAccountsHandler>().HandleAsync("Asset", null, false));
+        var bank = accounts.Single(a => a.Name == "Current account");
 
-        (await client.SendAsync(wizardRequest, CancellationToken.None))
-            .StatusCode.Should().Be(HttpStatusCode.Redirect);
-
-        var accounts = await client.GetFromJsonAsync<List<AccountDto>>(
-            "/api/v1/accounts?kind=Asset", CancellationToken.None);
-        var bank = accounts!.Single(a => a.Name == "Current account");
-
-        var categories = await client.GetFromJsonAsync<List<CategoryNodeDto>>(
-            "/api/v1/categories?kind=Expense", CancellationToken.None);
-        var groceries = categories!.Single(c => c.Name == "Groceries");
+        var categories = await factory.UseAsync(services =>
+            services.GetRequiredService<GetCategoryTreeHandler>().HandleAsync("Expense", false));
+        var groceries = Flatten(categories).Single(c => c.Name == "Groceries");
 
         // 2. Record an expense.
-        var expense = await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 42.35m, categoryId = groceries.Id, accountId = bank.Id,
-                  occurredOn = "2026-09-01", description = "Weekly shop" },
-            CancellationToken.None);
-        expense.StatusCode.Should().Be(HttpStatusCode.Created);
+        await factory.QuickEntryAsync(
+            42.35m, groceries.Id, bank.Id, new DateOnly(2026, 9, 1), "Weekly shop");
 
-        // 3. See it in the list.
-        var page = await client.GetFromJsonAsync<TransactionPageDto>(
-            "/api/v1/transactions", CancellationToken.None);
-        page!.Items.Should().Contain(i => i.Description == "Weekly shop" && i.Amount == 42.35m);
-
+        // 3. See it in the list - on the page, which is the only place a user ever sees it.
         var html = await client.GetStringAsync("/transactions", CancellationToken.None);
         html.Should().Contain("Weekly shop").And.Contain("42.35");
 
         // 4. See the balance change.
-        var balance = await client.GetFromJsonAsync<AccountBalanceDto>(
-            $"/api/v1/accounts/{bank.Id}/balance", CancellationToken.None);
-        balance!.Balance.Should().Be(1457.65m);
+        (await factory.BalanceAsync(bank.Id)).Should().Be(1457.65m);
 
         // 5. Move money to savings, and confirm it is not spending.
-        var savings = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Rainy day", kind = "Asset", role = "SavingsPocket", currencyCode = "EUR" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var savings = await factory.CreateAccountAsync("Rainy day", "SavingsPocket");
 
-        var bankBeforeTransfer = balance.Balance;
+        var transfer = await factory.UseAsync(services =>
+            services.GetRequiredService<TransferHandler>().HandleAsync(
+                new TransferRequest(300m, bank.Id, savings.Id, new DateOnly(2026, 9, 2), null)));
+        transfer.IsSuccess.Should().BeTrue(transfer.Error?.Message);
 
-        var transfer = await client.PostAsJsonAsync("/api/v1/transactions/transfer",
-            new { amount = 300m, fromAccountId = bank.Id, toAccountId = savings!.Id,
-                  occurredOn = "2026-09-02" }, CancellationToken.None);
-        transfer.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var bankAfterTransfer = await client.GetFromJsonAsync<AccountBalanceDto>(
-            $"/api/v1/accounts/{bank.Id}/balance", CancellationToken.None);
-        bankAfterTransfer!.Balance.Should().Be(bankBeforeTransfer - 300m,
+        (await factory.BalanceAsync(bank.Id)).Should().Be(1157.65m,
             "the transfer must actually debit the source account");
-
-        var savingsAfterTransfer = await client.GetFromJsonAsync<AccountBalanceDto>(
-            $"/api/v1/accounts/{savings.Id}/balance", CancellationToken.None);
-        savingsAfterTransfer!.Balance.Should().Be(300m,
+        (await factory.BalanceAsync(savings.Id)).Should().Be(300m,
             "the transfer must actually credit the destination account");
-
-        var groceriesBalance = await client.GetFromJsonAsync<AccountBalanceDto>(
-            $"/api/v1/accounts/{groceries.Id}/balance", CancellationToken.None);
-        groceriesBalance!.Balance.Should().Be(42.35m,
+        (await factory.BalanceAsync(groceries.Id)).Should().Be(42.35m,
             "moving money to savings is not spending (I12)");
 
         // 6. The books still balance, and the data passes its own integrity check.
-        var report = await (await client.PostAsync("/api/v1/admin/integrity-check", null,
-                                                   CancellationToken.None))
-            .Content.ReadFromJsonAsync<IntegrityReportDto>(CancellationToken.None);
-        report!.IsHealthy.Should().BeTrue();
+        var report = await factory.UseAsync(services =>
+            services.GetRequiredService<RunIntegrityCheckHandler>().HandleAsync());
+        report.IsHealthy.Should().BeTrue();
 
-        // 7. Everything can be exported.
-        var export = await client.GetAsync("/api/v1/admin/export?format=json",
-                                           CancellationToken.None);
+        // 7. Everything can be exported - from the two buttons on the Settings page.
+        var export = await client.GetAsync("/settings?handler=Export&format=json", CancellationToken.None);
         export.StatusCode.Should().Be(HttpStatusCode.OK);
         (await export.Content.ReadAsStringAsync(CancellationToken.None))
             .Should().Contain("Weekly shop");
@@ -131,10 +105,7 @@ public sealed class RoundTripAcceptanceTests
         using var factory = new ApiFactory();
         using var client = factory.CreateApiClient();
 
-        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
-        var token = Regex.Match(wizardHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
-
-        var wizard = new FormUrlEncodedContent(new Dictionary<string, string>
+        await CompleteFirstRunAsync(client, new Dictionary<string, string>
         {
             ["BaseCurrencyCode"] = "JPY",
             ["PeriodAnchor"] = "DayOfMonth",
@@ -148,24 +119,16 @@ public sealed class RoundTripAcceptanceTests
             ["SeedStarterCategories"] = "false"
         });
 
-        using var wizardRequest = new HttpRequestMessage(HttpMethod.Post, "/FirstRun") { Content = wizard };
-        wizardRequest.Headers.Add("RequestVerificationToken", token);
-        (await client.SendAsync(wizardRequest, CancellationToken.None))
-            .StatusCode.Should().Be(HttpStatusCode.Redirect);
-
-        var bank = (await client.GetFromJsonAsync<List<AccountDto>>(
-            "/api/v1/accounts?kind=Asset", CancellationToken.None))!.Single(a => a.Name == "Wallet");
+        var accounts = await factory.UseAsync(services =>
+            services.GetRequiredService<ListAccountsHandler>().HandleAsync("Asset", null, false));
+        var bank = accounts.Single(a => a.Name == "Wallet");
         bank.CurrencyCode.Should().Be("JPY");
 
-        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Ramen", kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-        category!.CurrencyCode.Should().Be("JPY");
+        var category = await factory.CreateCategoryAsync("Ramen", "Expense");
+        category.CurrencyCode.Should().Be("JPY");
 
-        await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 1235m, categoryId = category.Id, accountId = bank.Id,
-                  occurredOn = "2026-09-01", description = "Ramen shop" },
-            CancellationToken.None);
+        await factory.QuickEntryAsync(
+            1235m, category.Id, bank.Id, new DateOnly(2026, 9, 1), "Ramen shop");
 
         // The amount and its currency code are separate elements now, so these look for the
         // rendered figure and the code independently rather than for one run of text.
@@ -185,14 +148,11 @@ public sealed class RoundTripAcceptanceTests
     {
         // C1: Accounts.cshtml.cs's OnPostCreateAsync used to pass the literal "EUR" to
         // CreateAccountRequest regardless of the ledger's base currency. This drives that exact
-        // form handler (not the JSON API) to make sure the page-level call site is fixed too.
+        // form handler to make sure the page-level call site is fixed too.
         using var factory = new ApiFactory();
         using var client = factory.CreateApiClient();
 
-        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
-        var wizardToken = Regex.Match(wizardHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
-
-        var wizard = new FormUrlEncodedContent(new Dictionary<string, string>
+        await CompleteFirstRunAsync(client, new Dictionary<string, string>
         {
             ["BaseCurrencyCode"] = "HUF",
             ["PeriodAnchor"] = "DayOfMonth",
@@ -206,65 +166,70 @@ public sealed class RoundTripAcceptanceTests
             ["SeedStarterCategories"] = "false"
         });
 
-        using var wizardRequest = new HttpRequestMessage(HttpMethod.Post, "/FirstRun") { Content = wizard };
-        wizardRequest.Headers.Add("RequestVerificationToken", wizardToken);
-        (await client.SendAsync(wizardRequest, CancellationToken.None))
-            .StatusCode.Should().Be(HttpStatusCode.Redirect);
-
         var accountsHtml = await client.GetStringAsync("/accounts", CancellationToken.None);
-        var accountsToken = Regex.Match(accountsHtml, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+        var accountsToken = TokenIn(accountsHtml);
 
-        var form = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["name"] = "Savings",
-            ["role"] = "SavingsPocket"
-        });
         using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/accounts?handler=Create")
         {
-            Content = form
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["name"] = "Savings",
+                ["role"] = "SavingsPocket"
+            })
         };
         createRequest.Headers.Add("RequestVerificationToken", accountsToken);
 
         var created = await client.SendAsync(createRequest, CancellationToken.None);
         created.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var accounts = await client.GetFromJsonAsync<List<AccountDto>>(
-            "/api/v1/accounts?kind=Asset", CancellationToken.None);
-        accounts!.Single(a => a.Name == "Savings").CurrencyCode.Should().Be("HUF");
+        var accounts = await factory.UseAsync(services =>
+            services.GetRequiredService<ListAccountsHandler>().HandleAsync("Asset", null, false));
+        accounts.Single(a => a.Name == "Savings").CurrencyCode.Should().Be("HUF");
     }
 
     [Fact]
     public async Task A_mistaken_entry_can_be_removed_and_the_balance_returns()
     {
         using var factory = new ApiFactory();
-        using var client = factory.CreateApiClient();
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Wallet", kind = "Asset", role = "Cash", currencyCode = "EUR",
-                  openingBalance = 100m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await factory.CreateAccountAsync(
+            "Wallet", "Cash", openingBalance: 100m, openedOn: new DateOnly(2026, 1, 1));
+        var category = await factory.CreateCategoryAsync("Snacks", "Expense");
 
-        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Snacks", kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var created = await factory.QuickEntryAsync(
+            9.99m, category.Id, bank.Id, new DateOnly(2026, 9, 1), "Oops");
 
-        var created = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 9.99m, categoryId = category!.Id, accountId = bank!.Id,
-                  occurredOn = "2026-09-01", description = "Oops" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<TransactionDto>(CancellationToken.None);
+        var voided = await factory.UseAsync(services =>
+            services.GetRequiredService<VoidTransactionHandler>()
+                    .HandleAsync(created.Id, "Entered twice"));
+        voided.IsSuccess.Should().BeTrue(voided.Error?.Message);
 
-        await client.PostAsJsonAsync($"/api/v1/transactions/{created!.Id}/void",
-            new { reason = "Entered twice" }, CancellationToken.None);
+        (await factory.BalanceAsync(bank.Id)).Should().Be(100m);
 
-        var balance = await client.GetFromJsonAsync<AccountBalanceDto>(
-            $"/api/v1/accounts/{bank.Id}/balance", CancellationToken.None);
-        balance!.Balance.Should().Be(100m);
-
-        var withVoided = await client.GetFromJsonAsync<TransactionPageDto>(
-            "/api/v1/transactions?includeVoided=true", CancellationToken.None);
-        withVoided!.Items.Should().Contain(i => i.Id == created.Id,
+        var withVoided = await factory.ListTransactionsAsync(includeVoided: true);
+        withVoided.Items.Should().Contain(i => i.Id == created.Id,
             "history is kept; nothing is ever deleted (spec D11)");
     }
+
+    private static async Task CompleteFirstRunAsync(HttpClient client, Dictionary<string, string> fields)
+    {
+        var wizardHtml = await client.GetStringAsync("/FirstRun", CancellationToken.None);
+        var token = TokenIn(wizardHtml);
+        token.Should().NotBeNullOrEmpty("the layout should always stamp a token onto <body>");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/FirstRun")
+        {
+            Content = new FormUrlEncodedContent(fields)
+        };
+        request.Headers.Add("RequestVerificationToken", token);
+
+        (await client.SendAsync(request, CancellationToken.None))
+            .StatusCode.Should().Be(HttpStatusCode.Redirect);
+    }
+
+    private static string TokenIn(string html) =>
+        Regex.Match(html, "RequestVerificationToken\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+
+    private static IEnumerable<CategoryNodeDto> Flatten(IEnumerable<CategoryNodeDto> nodes) =>
+        nodes.SelectMany(node => new[] { node }.Concat(Flatten(node.Children)));
 }

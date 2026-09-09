@@ -1,7 +1,11 @@
 # Money Tracker — working agreement
 
-Local-first personal money tracker. .NET 9, Minimal API, EF Core + SQLite,
-Razor + HTMX, shipped as a single-file WebView2-hosted `.exe`.
+Local-first personal money tracker. .NET 9, EF Core + SQLite, Razor + HTMX,
+shipped as a single-file WebView2-hosted `.exe`.
+
+**Desktop only.** There is no JSON API, no PWA manifest, no service worker and
+no server mode. The window is the only client, and it talks to Razor page
+handlers. Do not add an HTTP endpoint for something a page handler can do.
 
 Full design: [docs/superpowers/specs/2026-09-01-money-tracker-design.md](docs/superpowers/specs/2026-09-01-money-tracker-design.md).
 That spec is the contract — this file is the subset you must not violate while
@@ -12,11 +16,19 @@ persistence and the HTMX shell — a usable manual expense tracker. On top of
 that came recurring entries (phase 3), bank import, multi-currency accounts and
 a home page you record from and step through a month at a time. Phase 8
 (single-file publish, the WebView2 desktop shell, single-instance guard,
-window state and restore-from-backup) is the most recent. Still unbuilt:
-budgets (4), pockets (5), investments and accrual (6), the reports dashboard
-(7), and server mode (9) — `--server` today means "no window", not the
-Dockerfile, cookie auth and rate limiting that phase promises. The solution,
-projects and test commands below exist; match the shape that is there.
+window state and restore-from-backup) is the most recent. Then, on 9 September
+2026, everything that existed only to serve this UI to a browser was removed:
+the `/api/v1` surface and its OpenAPI document, `HostingMode`, `ICurrentUser`,
+the idempotency filter, the PWA manifest and service worker, and Money.Api's
+launch profiles. Still unbuilt: budgets (4), pockets (5), investments and
+accrual (6) and the reports dashboard (7). Phase 9, server mode, is dropped.
+The solution, projects and test commands below exist; match the shape there.
+
+Removing the API took four capabilities with it, because they had a route and
+no screen: transfer between accounts, recategorising an imported line, an entry
+split across several categories, and a balance as of a past date. The handlers
+are all still in `Money.Application` and still tested. Each needs a screen, not
+an endpoint. See section 8 of [docs/using-the-app.md](docs/using-the-app.md).
 
 ---
 
@@ -109,7 +121,7 @@ src/
   Money.Domain/          entities, value objects, invariants, pure engines
   Money.Application/     use cases, ports, validation, DTOs
   Money.Infrastructure/  EF Core, migrations, repositories, clock, backup
-  Money.Api/             Minimal API, Razor Pages + HTMX, composition root
+  Money.Api/             Razor Pages + HTMX, page handlers, composition root
   Money.Desktop/         WebView2 host, boots Kestrel on loopback
 tests/
   Money.TestSupport/         FakeClock, SqliteFixture, ledger builders (not a test project)
@@ -136,9 +148,13 @@ Also non-negotiable at the boundaries:
 - Double-entry vocabulary never reaches a view. The word "posting" does not
   appear in the UI.
 - Expected failures return `Result<T>`; exceptions are for programmer error
-  only. The application layer maps domain errors to RFC 9457 Problem Details.
-- Hosting mode (desktop vs server) is a config flag read at startup. Nothing
-  below the API layer knows which mode it is in.
+  only. A page handler puts `result.Error.Message` on the screen; it never
+  throws to say no. `AddProblemDetails` stays registered for what the framework
+  raises on its own (a failed antiforgery check is a 400 because of it).
+- `--headless` is Money.Desktop's flag and lives only there: no window, no
+  WebView2 check, no single-instance mutex, address from `--urls`. It exists
+  for CI's smoke test against `/health` and is not a hosting mode. Nothing
+  below `Money.Desktop` knows it was passed.
 
 ---
 
@@ -181,3 +197,10 @@ Testing rules:
 - No test reads the system clock. `FakeClock` everywhere.
 - The dashboard read model has a golden-file test against a fixed seeded
   dataset; reporting changes must show up as a diff.
+
+---
+
+## Branching
+
+Work directly on `main`. Do not create feature branches or worktrees for this
+project unless explicitly asked.

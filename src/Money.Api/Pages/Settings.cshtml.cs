@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Money.Application.Admin;
@@ -14,7 +15,8 @@ public sealed class SettingsModel(
     ListBackupsHandler listBackups,
     StageRestoreHandler stageRestore,
     IHostApplicationLifetime lifetime,
-    RunIntegrityCheckHandler integrity) : PageModel
+    RunIntegrityCheckHandler integrity,
+    ExportLedgerHandler export) : PageModel
 {
     public SettingsDto Current { get; private set; } = null!;
     public string? Message { get; private set; }
@@ -41,6 +43,24 @@ public sealed class SettingsModel(
 
     public async Task OnGetAsync(CancellationToken cancellationToken) => await LoadAsync(cancellationToken);
 
+    /// <summary>
+    /// The whole ledger as a file the browser saves. A GET handler rather than a form post: the
+    /// two buttons on the Settings page are plain links, and a download is what a link is for.
+    /// </summary>
+    public async Task<IActionResult> OnGetExportAsync(string? format, CancellationToken cancellationToken)
+    {
+        var result = await export.HandleAsync(format, cancellationToken);
+        if (result.IsFailure)
+        {
+            ErrorMessage = result.Error!.Message;
+            await LoadAsync(cancellationToken);
+            return Page();
+        }
+
+        var (content, contentType, fileName) = result.Value;
+        return File(Encoding.UTF8.GetBytes(content), contentType, fileName);
+    }
+
     public async Task<IActionResult> OnPostSaveAsync(CancellationToken cancellationToken)
     {
         var result = await update.HandleAsync(Form, cancellationToken);
@@ -64,7 +84,7 @@ public sealed class SettingsModel(
     /// <summary>
     /// Staging only: the file is swapped at the next start, before anything opens the database.
     /// Stopping the app is therefore part of the operation, not a side effect of it - the desktop
-    /// host relaunches, and in server mode the operator restarts.
+    /// host relaunches to finish the swap.
     /// </summary>
     public async Task<IActionResult> OnPostRestoreAsync(string? fileName, CancellationToken cancellationToken)
     {

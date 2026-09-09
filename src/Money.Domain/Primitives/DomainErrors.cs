@@ -226,16 +226,4 @@ public static class DomainErrors
             new("import.window_out_of_range",
                 $"The import window must be between 1 and {max} days, but was {days}.");
     }
-
-    public static class Idempotency
-    {
-        public static DomainError KeyReusedWithDifferentPayload() =>
-            new("idempotency.key_reused_with_different_payload",
-                "This Idempotency-Key was already used for a request with a different body. " +
-                "Use a new key for a different request.");
-
-        public static DomainError RequestInProgress() =>
-            new("idempotency.request_in_progress",
-                "A request with this Idempotency-Key is still being processed. Retry shortly.");
-    }
 }

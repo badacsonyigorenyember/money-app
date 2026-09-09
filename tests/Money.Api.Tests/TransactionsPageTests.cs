@@ -1,7 +1,5 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.RegularExpressions;
-using Money.Application.Contracts;
 
 namespace Money.Api.Tests;
 
@@ -82,20 +80,12 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
-                  openingBalance = 500m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 500m, openedOn: new DateOnly(2026, 1, 1));
+        var category = await _factory.CreateCategoryAsync("Books " + suffix, "Expense");
 
-        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Books " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 19.99m, categoryId = category!.Id, accountId = bank!.Id,
-                  occurredOn = "2026-09-01", description = "Novel " + suffix },
-            CancellationToken.None);
+        await _factory.QuickEntryAsync(
+            19.99m, category.Id, bank.Id, new DateOnly(2026, 9, 1), "Novel " + suffix);
 
         var html = await client.GetStringAsync("/transactions", CancellationToken.None);
 
@@ -104,14 +94,13 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task The_page_is_responsive_and_declares_a_pwa_manifest()
+    public async Task The_page_is_responsive()
     {
         using var client = _factory.CreateApiClient();
 
         var html = await client.GetStringAsync("/transactions", CancellationToken.None);
 
         html.Should().Contain("name=\"viewport\"");
-        html.Should().Contain("manifest.webmanifest");
     }
 
     [Fact]
@@ -133,7 +122,7 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     {
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
-        var transactionId = await CreateExpenseAsync(client, suffix);
+        var transactionId = await CreateExpenseAsync(suffix);
 
         // No prior GET, so this client carries neither the antiforgery cookie nor the header
         // token that Shared/_Layout.cshtml stamps onto <body> via hx-headers. This is the
@@ -144,7 +133,7 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
             content: null, CancellationToken.None);
 
         // Pinned to what this app actually returns: Razor Pages' built-in antiforgery
-        // validation fails inside an authorization filter, which Program.cs's
+        // validation fails inside an authorization filter, which MoneyWebApp's
         // app.UseExceptionHandler() + AddProblemDetails() turns into a 400 Problem Details
         // response (AntiforgeryValidationException is treated as a bad request, not a 500).
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -155,7 +144,7 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     {
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
-        var transactionId = await CreateExpenseAsync(client, suffix);
+        var transactionId = await CreateExpenseAsync(suffix);
 
         // Fetch the page first, exactly like a browser would: this both sets the antiforgery
         // cookie (WebApplicationFactoryClientOptions.HandleCookies defaults to true, so the
@@ -171,37 +160,27 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
 
         var response = await client.SendAsync(request, CancellationToken.None);
 
-        // Proves the 400 above is really about the missing token, not some other defect in
-        // the request: the same request, only now carrying a valid token, succeeds and
-        // actually voids the transaction (checked independently via the JSON API, since the
-        // returned rows partial excludes voided items by default and so would look identical
-        // whether or not the void call actually did anything).
+        // Proves the 400 above is really about the missing token, not some other defect in the
+        // request: the same request, only now carrying a valid token, succeeds and actually
+        // voids the transaction (read back through the use case, since the returned rows
+        // partial excludes voided items by default and so would look identical whether or not
+        // the void call actually did anything).
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var voided = await client.GetFromJsonAsync<TransactionDto>(
-            $"/api/v1/transactions/{transactionId}", CancellationToken.None);
-        voided!.IsVoided.Should().BeTrue();
+        var withVoided = await _factory.ListTransactionsAsync(includeVoided: true);
+        withVoided.Items.Should().Contain(item => item.Id == transactionId && item.IsVoided);
     }
 
-    private static async Task<Guid> CreateExpenseAsync(HttpClient client, string suffix)
+    private async Task<Guid> CreateExpenseAsync(string suffix)
     {
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
-                  openingBalance = 500m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 500m, openedOn: new DateOnly(2026, 1, 1));
+        var category = await _factory.CreateCategoryAsync("Books " + suffix, "Expense");
 
-        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Books " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var transaction = await _factory.QuickEntryAsync(
+            19.99m, category.Id, bank.Id, new DateOnly(2026, 9, 1), "Novel " + suffix);
 
-        var transaction = await (await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 19.99m, categoryId = category!.Id, accountId = bank!.Id,
-                  occurredOn = "2026-09-01", description = "Novel " + suffix },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<TransactionDto>(CancellationToken.None);
-
-        return transaction!.Id;
+        return transaction.Id;
     }
 
     [Fact]
@@ -229,15 +208,9 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         var suffix = Guid.NewGuid().ToString("N")[..6];
         var description = "Salary " + suffix;
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
-                  openingBalance = 500m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        var category = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Pay " + suffix, kind = "Income" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 500m, openedOn: new DateOnly(2026, 1, 1));
+        var category = await _factory.CreateCategoryAsync("Pay " + suffix, "Income");
 
         var pageHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
         var token = Regex.Match(pageHtml, @"RequestVerificationToken""\s*:\s*""([^""]+)""").Groups[1].Value;
@@ -247,8 +220,8 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["amount"] = "2500",
-            ["categoryId"] = category!.Id.ToString(),
-            ["accountId"] = bank!.Id.ToString(),
+            ["categoryId"] = category.Id.ToString(),
+            ["accountId"] = bank.Id.ToString(),
             ["occurredOn"] = "2026-07-01",
             ["description"] = description,
             ["repeat"] = "true",
@@ -265,10 +238,9 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         rows.Should().Contain("hx-swap-oob", "the repeating list is refreshed on the same response");
 
         // The factory's clock reads 1 September 2026, so July, August and September are due.
-        var listed = await client.GetFromJsonAsync<TransactionPageDto>(
-            $"/api/v1/transactions?q={description}", CancellationToken.None);
+        var listed = await _factory.ListTransactionsAsync(description);
 
-        listed!.Items.Should().HaveCount(3);
+        listed.Items.Should().HaveCount(3);
         listed.Items.Should().OnlyContain(item => item.Amount == 2500m);
     }
 
@@ -283,24 +255,13 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
-                  openingBalance = 500m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync(
+            "Bank " + suffix, "Bank", openingBalance: 500m, openedOn: new DateOnly(2026, 1, 1));
+        var books = await _factory.CreateCategoryAsync("Books " + suffix, "Expense");
+        var fuel = await _factory.CreateCategoryAsync("Fuel " + suffix, "Expense");
 
-        var books = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Books " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        var fuel = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Fuel " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-            new { amount = 19.99m, categoryId = books!.Id, accountId = bank!.Id,
-                  occurredOn = "2026-09-01", description = "Novel " + suffix },
-            CancellationToken.None);
+        await _factory.QuickEntryAsync(
+            19.99m, books.Id, bank.Id, new DateOnly(2026, 9, 1), "Novel " + suffix);
 
         var pageHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
         var token = Regex.Match(pageHtml, @"RequestVerificationToken""\s*:\s*""([^""]+)""").Groups[1].Value;
@@ -310,7 +271,7 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["amount"] = "40.00",
-            ["categoryId"] = fuel!.Id.ToString(),
+            ["categoryId"] = fuel.Id.ToString(),
             ["accountId"] = bank.Id.ToString(),
             ["occurredOn"] = "2026-09-01",
             ["description"] = "Diesel " + suffix
@@ -335,21 +296,13 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Bank " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync("Bank " + suffix, "Bank");
+        var food = await _factory.CreateCategoryAsync("Food " + suffix, "Expense");
 
-        var food = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Food " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        foreach (var (day, what) in new[] { ("2026-07-14", "Melon"), ("2026-09-01", "Bread") })
+        foreach (var (day, what) in new[]
+                 { (new DateOnly(2026, 7, 14), "Melon"), (new DateOnly(2026, 9, 1), "Bread") })
         {
-            await client.PostAsJsonAsync("/api/v1/transactions/quick-entry",
-                new { amount = 5m, categoryId = food!.Id, accountId = bank!.Id,
-                      occurredOn = day, description = what + " " + suffix },
-                CancellationToken.None);
+            await _factory.QuickEntryAsync(5m, food.Id, bank.Id, day, what + " " + suffix);
         }
 
         var thisMonth = await client.GetStringAsync("/transactions", CancellationToken.None);
@@ -372,14 +325,11 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        var bank = await (await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Vault " + suffix, kind = "Asset", role = "Bank", currencyCode = "EUR",
-                  openingBalance = 4200m, openedOn = "2026-01-01" },
-            CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
+        var bank = await _factory.CreateAccountAsync(
+            "Vault " + suffix, "Bank", openingBalance: 4200m, openedOn: new DateOnly(2026, 1, 1));
 
         var chart = await client.GetStringAsync(
-            $"/transactions?handler=Chart&picked=true&selected={bank!.Id}", CancellationToken.None);
+            $"/transactions?handler=Chart&picked=true&selected={bank.Id}", CancellationToken.None);
 
         chart.Should().Contain("grid--zero",
             "a chart of a 4200 balance still has to show where zero is");

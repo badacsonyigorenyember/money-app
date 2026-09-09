@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Money.Api.Infrastructure;
 using Money.Application.Abstractions;
 using Money.Application.Accounts;
 using Money.Application.Admin;
@@ -13,7 +12,6 @@ using Money.Application.Transactions;
 using Money.Domain.Time;
 using Money.Infrastructure.Backup;
 using Money.Infrastructure.Export;
-using Money.Infrastructure.Identity;
 using Money.Infrastructure.Import;
 using Money.Infrastructure.Persistence;
 using Money.Infrastructure.Persistence.Repositories;
@@ -25,7 +23,7 @@ namespace Money.Api;
 public static class DependencyInjection
 {
     public static IServiceCollection AddMoneyApp(
-        this IServiceCollection services, IConfiguration configuration, HostingMode mode)
+        this IServiceCollection services, IConfiguration configuration)
     {
         var dataDirectory = DataDirectory.Resolve(
             Environment.GetEnvironmentVariable(DataDirectory.EnvironmentVariable),
@@ -45,18 +43,14 @@ public static class DependencyInjection
             options.UseSqlite(connectionString).AddInterceptors(new SqlitePragmaInterceptor()));
 
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<ICurrentUser, LocalCurrentUser>();
-        services.AddSingleton(typeof(HostingMode), mode);
 
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<IRecurringRuleRepository, RecurringRuleRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
-        services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<ILedgerQueries, LedgerQueries>();
         services.AddScoped<IIntegrityChecker, IntegrityChecker>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
-        services.AddScoped<IdempotencyFilter>();
 
         services.AddScoped<IBackupService>(provider => new SqliteBackupService(
             provider.GetRequiredService<MoneyDbContext>(),

@@ -1,7 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
-using Money.Application.Contracts;
-
 namespace Money.Api.Tests;
 
 public sealed class CategoriesPageTests : IClassFixture<ApiFactory>
@@ -16,13 +12,8 @@ public sealed class CategoriesPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        var parent = await (await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Travel " + suffix, kind = "Expense" }, CancellationToken.None))
-            .Content.ReadFromJsonAsync<AccountDto>(CancellationToken.None);
-
-        await client.PostAsJsonAsync("/api/v1/categories",
-            new { name = "Flights", kind = "Expense", parentCategoryId = parent!.Id },
-            CancellationToken.None);
+        var parent = await _factory.CreateCategoryAsync("Travel " + suffix, "Expense");
+        await _factory.CreateCategoryAsync("Flights", "Expense", parent.Id);
 
         var html = await client.GetStringAsync("/categories", CancellationToken.None);
 
@@ -36,10 +27,8 @@ public sealed class CategoriesPageTests : IClassFixture<ApiFactory>
         using var client = _factory.CreateApiClient();
         var suffix = Guid.NewGuid().ToString("N")[..6];
 
-        await client.PostAsJsonAsync("/api/v1/accounts",
-            new { name = "Vault " + suffix, kind = "Asset", role = "Cash", currencyCode = "EUR",
-                  openingBalance = 42m, openedOn = "2026-01-01" },
-            CancellationToken.None);
+        await _factory.CreateAccountAsync(
+            "Vault " + suffix, "Cash", openingBalance: 42m, openedOn: new DateOnly(2026, 1, 1));
 
         var html = await client.GetStringAsync("/accounts", CancellationToken.None);
 

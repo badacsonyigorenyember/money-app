@@ -29,7 +29,7 @@ Nine files land in `dist`, and the first one is nearly all of it:
 | `wwwroot\lib\htmx.min.js` | 50 KB |
 | `Money.Api.deps.json` | 44 KB |
 | `wwwroot\app.css` | 28 KB |
-| `Money.Api.runtimeconfig.json`, `appsettings.json`, `appsettings.Development.json`, `wwwroot\manifest.webmanifest`, `wwwroot\sw.js` | under 1 KB each |
+| `Money.Api.runtimeconfig.json`, `appsettings.json`, `appsettings.Development.json` | under 1 KB each |
 
 The exe is self-contained and compressed, so no .NET install is needed on the machine that runs
 it. It is deliberately **not** trimmed — EF Core and Razor find things by reflection, and a
@@ -73,33 +73,29 @@ Three things you notice, none of which have a setting:
 One more: a restore closes the window and opens it again by itself. See
 [section 6](#6-settings--settings).
 
-### Or the plain web app
+### From source
 
 ```
-dotnet run --project src/Money.Api
+dotnet run --project src/Money.Desktop
 ```
 
-Open <http://localhost:5247>. Identical pipeline — both entry points call the same
-`MoneyWebApp.CreateAsync`; the only difference is who hosts the window.
+Same window, same pipeline, no publish step. There is no browser mode: the app serves its pages
+to its own window on a loopback port the OS picks, and nothing else is a client.
 
-The published exe can do this too:
+The published exe has one flag:
 
 ```
-dist\Money.exe --server --urls http://127.0.0.1:5099
+dist\Money.exe --headless --urls http://127.0.0.1:5099
 ```
 
-That runs the same app headless — no window, no WebView2 check, no single-instance lock — which
-is how CI smoke-tests the published executable against `/health` on a runner with no browser
-runtime at all. `--server` means "no window" and nothing more; server mode proper (a Dockerfile,
-sign-in, rate limiting) is phase 9 and is not here.
-
-**Use one of these two modes whenever you want the HTTP API**, because the desktop app's port is
-random and changes every launch. Everything in section 8 assumes port 5247.
+No window, no WebView2 check, no single-instance lock. It exists so CI can smoke-test the
+published executable against `/health` on a runner with no browser runtime at all — not so the
+app can be served to anything.
 
 ### A scratch instance to play in
 
 ```
-$env:MONEYAPP_DATA_DIR = "C:\temp\moneyapp-scratch"; dotnet run --project src/Money.Api
+$env:MONEYAPP_DATA_DIR = "C:\temp\moneyapp-scratch"; dotnet run --project src/Money.Desktop
 ```
 
 Separate database, separate backups, your real ledger untouched. Delete the folder when done.
@@ -249,8 +245,8 @@ to report as spending.
 - A child always inherits its parent's kind — you cannot hang a spending category under an income
   one.
 
-There is no rename button on this screen yet, though the handler behind it exists. Rename via
-`PATCH /api/v1/accounts/{id}` for now.
+There is no rename button on this screen yet, though the handler behind it exists - and since the
+JSON API was removed there is no way to reach it. Delete and recreate, or wait for the button.
 
 ---
 
@@ -344,63 +340,22 @@ fixes nothing.
    the restore list underneath — then **Download CSV**.
 
 ---
+## 8. What the app cannot do at all
 
-## 8. What only the API can do right now
-
-Run in web mode (`dotnet run --project src/Money.Api`, port 5247) for these. Full schema at
-<http://localhost:5247/openapi/v1.json>. Get account and category ids from
-`GET /api/v1/accounts` and `GET /api/v1/categories?kind=Income`.
-
-### Move money between accounts
-
-```bash
-curl.exe -X POST http://localhost:5247/api/v1/transactions/transfer -H "Content-Type: application/json" -d "{\"amount\":500,\"fromAccountId\":\"<from>\",\"toAccountId\":\"<to>\",\"description\":\"To savings\"}"
-```
-
-A transfer touches two asset accounts and no expense category, so it can never appear as spending.
-There is no screen for it yet.
-
-### Recategorise an imported line
-
-Bank sync files everything under `Unclassified` and there is no edit screen yet. Replace the
-transaction with the same shape pointing at the real category:
-
-```bash
-curl.exe -X PUT http://localhost:5247/api/v1/transactions/<id> -H "Content-Type: application/json" -d "{\"occurredOn\":\"2026-09-05\",\"description\":\"Tesco\",\"lines\":[{\"accountId\":\"<Groceries id>\",\"amount\":42.50},{\"accountId\":\"<bank account id>\",\"amount\":-42.50}]}"
-```
-
-This is the one genuinely awkward gap in day-to-day use if you turn bank sync on.
-
-### A transaction with more than two lines
-
-The generic endpoint takes any number of lines, which is the only way to record something split
-across several categories:
-
-```bash
-curl.exe -X POST http://localhost:5247/api/v1/transactions -H "Content-Type: application/json" -d "{\"occurredOn\":\"2026-09-08\",\"description\":\"September salary\",\"lines\":[{\"accountId\":\"<bank account id>\",\"amount\":3000},{\"accountId\":\"<Salary category id>\",\"amount\":3000}]}"
-```
-
-**Both amounts there are positive.** You state amounts the way you would say them out loud; the
-sign convention is applied per line from each account's kind.
-
-### Other endpoints
+Until 9 September 2026 there was a JSON API under `/api/v1`, and four things were reachable only
+through it. The API is gone — the window never called it, so it was thirty routes kept alive for
+`curl` — and with it those four went from awkward to impossible. The use cases are all still in
+`Money.Application`; what each needs is a screen.
 
 | | |
 |---|---|
-| `GET /api/v1/accounts/{id}/balance?asOf=YYYY-MM-DD` | balance on a past date |
-| `GET /api/v1/transactions?from=&to=&q=&cursor=&limit=` | the paged list, cursor included |
-| `POST /api/v1/transactions/{id}/void` | same as the Remove button |
-| `PATCH /api/v1/accounts/{id}` | rename, re-parent, sort order, colour, icon, notes |
-| `GET/POST /api/v1/recurring-rules`, `/{id}/pause`, `/{id}/resume`, `DELETE /{id}` | the Repeating section |
-| `POST /api/v1/recurring/run` | post whatever is due now |
-| `POST /api/v1/import/bank` | the Sync from bank button |
-| `POST /api/v1/admin/backup`, `GET /admin/backups`, `POST /admin/restore` | the backup and restore buttons |
-| `POST /api/v1/admin/integrity-check`, `GET /admin/export?format=` | the other Settings buttons |
-| `GET /health` | liveness |
+| **Move money between accounts** | `TransferHandler` exists and is tested. Nothing calls it. |
+| **Recategorise an imported line** | Bank sync files everything under `Unclassified`, and `ReplaceTransactionHandler` is how you would repoint it. This is the real gap if you turn bank sync on. |
+| **Split one entry across several categories** | `CreateTransactionHandler` takes any number of lines; the quick-add form takes one category. |
+| **A balance on a past date** | `GetAccountBalanceHandler` takes an `asOf`; no screen passes one. |
 
-The four creating endpoints (`/transactions`, `/transactions/quick-entry`,
-`/transactions/transfer`, `/recurring-rules`) honour an `Idempotency-Key` header: send the same key
-twice and the second call replays the first response instead of creating a duplicate.
+Everything else on the Settings and Home screens does what the API used to: backup, restore,
+integrity check, export, import, and the repeating rules.
 
 ---
 

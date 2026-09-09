@@ -5,6 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Money.Application.Abstractions;
+using Money.Application.Accounts;
+using Money.Application.Categories;
+using Money.Application.Contracts;
+using Money.Application.Transactions;
 using Money.Domain.Primitives;
 using Money.Domain.Time;
 using Money.Infrastructure.Persistence;
@@ -86,6 +90,60 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public HttpClient CreateApiClient() =>
         CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+    /// <summary>
+    /// Ledger setup and read-back through the app's own use cases. The desktop app exposes no
+    /// JSON API - the window talks to page handlers, which talk to these - so a test that needs
+    /// an account before it can look at a page asks exactly what a page would ask.
+    /// </summary>
+    public async Task<T> UseAsync<T>(Func<IServiceProvider, Task<T>> work)
+    {
+        using var scope = Services.CreateScope();
+        return await work(scope.ServiceProvider);
+    }
+
+    public Task<AccountDto> CreateAccountAsync(
+        string name, string role, string kind = "Asset", string? currencyCode = "EUR",
+        decimal? openingBalance = null, DateOnly? openedOn = null) =>
+        UseAsync(async services =>
+        {
+            var result = await services.GetRequiredService<CreateAccountHandler>().HandleAsync(
+                new CreateAccountRequest(name, kind, role, null, currencyCode, openingBalance, openedOn));
+            result.IsSuccess.Should().BeTrue(result.Error?.Message);
+            return result.Value;
+        });
+
+    public Task<AccountDto> CreateCategoryAsync(string name, string kind, Guid? parentId = null) =>
+        UseAsync(async services =>
+        {
+            var result = await services.GetRequiredService<CreateCategoryHandler>().HandleAsync(
+                new CreateCategoryRequest(name, kind, parentId));
+            result.IsSuccess.Should().BeTrue(result.Error?.Message);
+            return result.Value;
+        });
+
+    public Task<TransactionDto> QuickEntryAsync(
+        decimal amount, Guid categoryId, Guid accountId, DateOnly occurredOn, string description) =>
+        UseAsync(async services =>
+        {
+            var result = await services.GetRequiredService<QuickEntryHandler>().HandleAsync(
+                new QuickEntryRequest(amount, categoryId, accountId, occurredOn, description, null));
+            result.IsSuccess.Should().BeTrue(result.Error?.Message);
+            return result.Value;
+        });
+
+    public Task<decimal> BalanceAsync(Guid accountId) =>
+        UseAsync(async services =>
+        {
+            var result = await services.GetRequiredService<GetAccountBalanceHandler>()
+                .HandleAsync(accountId, null);
+            result.IsSuccess.Should().BeTrue(result.Error?.Message);
+            return result.Value.Balance;
+        });
+
+    public Task<TransactionPageDto> ListTransactionsAsync(string? text = null, bool includeVoided = false) =>
+        UseAsync(services => services.GetRequiredService<ListTransactionsHandler>().HandleAsync(
+            new TransactionQuery(null, null, null, null, text, includeVoided, null, 200)));
 
     protected override void Dispose(bool disposing)
     {

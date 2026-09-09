@@ -19,7 +19,7 @@ internal static class Program
 {
     private const string WebView2DownloadUrl = "https://developer.microsoft.com/microsoft-edge/webview2/";
 
-    private const string ServerFlag = "--server";
+    private const string HeadlessFlag = "--headless";
 
     [STAThread]
     private static int Main(string[] args)
@@ -47,11 +47,17 @@ internal static class Program
             Environment.GetEnvironmentVariable(DataDirectory.EnvironmentVariable),
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
 
-        // Server mode is headless: no window, no WebView2 runtime check and no single-instance
-        // mutex, because none of the three applies to a process nobody is looking at. CI's smoke
-        // test runs the published exe this way on a runner that has no browser runtime at all.
-        // The listening address arrives through configuration (--urls), not through app.Urls.
-        if (args.Contains(ServerFlag, StringComparer.OrdinalIgnoreCase))
+        // --headless is this host's own flag, and it is stripped before the arguments reach
+        // configuration: the command-line provider has no notion of a valueless flag, so it reads
+        // --headless --urls http://127.0.0.1:5099 as the key --headless with the value --urls, and
+        // the real address pair vanishes. Headless means no window, no WebView2 runtime check and
+        // no single-instance mutex, because none of the three applies to a process nobody is
+        // looking at. CI's smoke test runs the published exe this way, on a runner that has no
+        // browser runtime at all. The address arrives through configuration, not through app.Urls.
+        var headless = args.Contains(HeadlessFlag, StringComparer.OrdinalIgnoreCase);
+        args = [.. args.Where(arg => !HeadlessFlag.Equals(arg, StringComparison.OrdinalIgnoreCase))];
+
+        if (headless)
         {
             BuildApp(args).RunAsync().GetAwaiter().GetResult();
             return 0;

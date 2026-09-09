@@ -6,10 +6,11 @@
 
 ## Run the app
 
-    dotnet run --project src/Money.Api
+    dotnet run --project src/Money.Desktop
 
-Open the URL printed in the console (`http://localhost:5247` by default). On first run you are
-taken to a short setup wizard: pick a currency, when your "month" starts, and your first account.
+A window opens. There is no other way to run it: Kestrel binds a loopback port the OS picks and
+the WebView2 window is its only client. On first run you are taken to a short setup wizard: pick
+a currency, when your "month" starts, and your first account.
 
 ## Where your data lives
 
@@ -20,7 +21,7 @@ corrupted by the sync client.
 Override the location with the `MONEYAPP_DATA_DIR` environment variable, e.g. to run a second,
 throwaway instance side by side with your real data:
 
-    MONEYAPP_DATA_DIR=C:\temp\moneyapp-scratch dotnet run --project src/Money.Api
+    $env:MONEYAPP_DATA_DIR = "C:\temp\moneyapp-scratch"; dotnet run --project src/Money.Desktop
 
 Backups are written to `<data dir>\backups\`. The Settings screen keeps the newest N of them
 (configurable, default kept in Settings), oldest deleted first.
@@ -49,16 +50,15 @@ That pre-restore backup is an ordinary backup: it appears in the same list and c
 same retention limit. Restoring the wrong file is therefore not the one unrecoverable action in
 the app — you can restore your way back out of it.
 
-The desktop app relaunches itself after staging, so from the outside a restore is a window that
-closes and reopens. **In server mode nothing restarts you**: `dotnet run` (or `Money.exe --server`)
-exits once the file is staged, and you start it again yourself. The swap happens on that start.
+The app relaunches itself after staging, so from the outside a restore is a window that closes
+and reopens.
 
 ### Restoring by hand
 
 Still worth knowing, for the case where the app will not start at all and so cannot offer you the
 button: **a backup is a real, complete SQLite database file.**
 
-1. Close the app (stop `dotnet run`, or exit the desktop app).
+1. Close the app.
 2. Find the backup you want in `<data dir>\backups\` — file names are timestamped, newest last.
 3. Copy it over `<data dir>\money.db` (rename it to `money.db` first).
 4. Delete `<data dir>\money.db-wal` and `money.db-shm` if they are there. They belong to the

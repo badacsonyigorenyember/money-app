@@ -66,7 +66,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path $env:MONEYAPP_DATA_DIR | Out-Null
           $app = Start-Process -FilePath publish\Money.exe `
-            -ArgumentList '--server', '--urls', 'http://127.0.0.1:5099' -PassThru
+            -ArgumentList '--headless', '--urls', 'http://127.0.0.1:5099' -PassThru
           try {
             $ok = $false
             foreach ($attempt in 1..60) {
