@@ -16,6 +16,21 @@
             }
         }
     }
+
+    @* An account outside the ledger's own currency says so, because the amount above is read in
+       the currency of whatever is chosen here and 2500 means very different things in euros and
+       forints. *@
+    async Task AccountOptions(int selectedIndex)
+    {
+        await Task.CompletedTask;
+        for (var i = 0; i < Model.Accounts.Count; i++)
+        {
+            var account = Model.Accounts[i];
+            var foreign = account.CurrencyCode != Model.Overview.BaseCurrencyCode;
+
+            <option value="@account.Id" selected="@(i == selectedIndex)">@account.Name@(foreign ? $" ({account.CurrencyCode})" : "")</option>
+        }
+    }
 }
 
 <div class="page-head">
@@ -125,6 +140,14 @@
                     <label for="qa-category">Category</label>
                     <select id="qa-category" name="categoryId" required>
                         <option value="">Choose one…</option>
+                        @if (Model.Accounts.Count > 1)
+                        {
+                            @* Not a category - nothing is spent or earned - but this sheet is
+                               where money gets recorded, and someone looking for "move" looks in
+                               the same list they look in for "rent". Picking it swaps the one
+                               account below for a pair. *@
+                            <option value="@TransactionsModel.MoveMoney">Move money between accounts</option>
+                        }
                         @if (Model.SpendCategories.Count > 0)
                         {
                             <optgroup label="Money out">@{ await Options(Model.SpendCategories); }</optgroup>
@@ -134,23 +157,30 @@
                             <optgroup label="Money in">@{ await Options(Model.IncomeCategories); }</optgroup>
                         }
                     </select>
-                    <span class="hint">Picking an income category records money coming in.</span>
+                    <span class="hint not-move">Picking an income category records money coming in.</span>
                 </div>
 
-                <div class="field">
+                <div class="field not-move">
                     <label for="qa-account">Account</label>
-                    <select id="qa-account" name="accountId" required>
-                        @* An account outside the ledger's own currency says so, because the
-                           amount above is read in the currency of whatever is chosen here and
-                           2500 means very different things in euros and forints. *@
-                        @foreach (var account in Model.Accounts)
-                        {
-                            var foreign = account.CurrencyCode != Model.Overview.BaseCurrencyCode;
-
-                            <option value="@account.Id">@account.Name@(foreign ? $" ({account.CurrencyCode})" : "")</option>
-                        }
-                    </select>
+                    <select id="qa-account" name="accountId" required>@{ await AccountOptions(0); }</select>
                 </div>
+
+                @* Always present, never required: both selects carry a real account from the
+                   start, so the browser has nothing to complain about while they are hidden and
+                   no script is needed to disable them. *@
+                @if (Model.Accounts.Count > 1)
+                {
+                    <div class="field only-move">
+                        <label for="qa-from">From</label>
+                        <select id="qa-from" name="fromAccountId">@{ await AccountOptions(0); }</select>
+                    </div>
+
+                    <div class="field only-move">
+                        <label for="qa-to">To</label>
+                        <select id="qa-to" name="toAccountId">@{ await AccountOptions(1); }</select>
+                        <span class="hint">Both accounts have to be in the same currency.</span>
+                    </div>
+                }
 
                 <div class="field span-all">
                     <label for="qa-description">Description</label>
@@ -159,7 +189,7 @@
                 </div>
             </div>
 
-            <label class="check repeat-toggle">
+            <label class="check repeat-toggle not-move">
                 <input type="checkbox" id="qa-repeat" name="repeat" value="true" />
                 <span>
                     Repeat this automatically
@@ -169,7 +199,7 @@
                 </span>
             </label>
 
-            <fieldset class="repeat card--sunk">
+            <fieldset class="repeat card--sunk not-move">
                 <legend class="visually-hidden">How often does this repeat?</legend>
 
                 <div class="field-grid">

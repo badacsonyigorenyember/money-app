@@ -421,4 +421,84 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         chart.Should().Contain("grid--zero",
             "a chart of a 4200 balance still has to show where zero is");
     }
+
+    /// <summary>
+    /// "Move money" is a choice in the same category picker, not a screen of its own: it swaps the
+    /// one account for a pair, and the entry it writes is a transfer, so nothing leaves the ledger
+    /// and no expense category is touched.
+    /// </summary>
+    [Fact]
+    public async Task Choosing_move_money_transfers_between_the_two_chosen_accounts()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var current = await _factory.CreateAccountAsync(
+            "Current " + suffix, "Bank", openingBalance: 1000m, openedOn: new DateOnly(2026, 1, 1));
+        var savings = await _factory.CreateAccountAsync(
+            "Savings " + suffix, "Bank", openingBalance: 0m, openedOn: new DateOnly(2026, 1, 1));
+
+        var pageHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
+        pageHtml.Should().Contain("Move money", "the picker offers it once there are two accounts");
+
+        var token = Regex.Match(pageHtml, @"RequestVerificationToken""\s*:\s*""([^""]+)""").Groups[1].Value;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/transactions?handler=QuickAdd");
+        request.Headers.Add("RequestVerificationToken", token);
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["amount"] = "250",
+            ["categoryId"] = "move",
+            ["accountId"] = current.Id.ToString(),
+            ["fromAccountId"] = current.Id.ToString(),
+            ["toAccountId"] = savings.Id.ToString(),
+            ["occurredOn"] = "2026-09-01",
+            ["description"] = "Sweep " + suffix
+        });
+
+        var response = await client.SendAsync(request, CancellationToken.None);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var rows = await response.Content.ReadAsStringAsync(CancellationToken.None);
+        rows.Should().Contain("Sweep " + suffix);
+
+        (await _factory.BalanceAsync(current.Id)).Should().Be(750m);
+        (await _factory.BalanceAsync(savings.Id)).Should().Be(250m);
+    }
+
+    /// <summary>
+    /// The same account on both sides is a mistake, not a no-op, and it is said on the page rather
+    /// than thrown.
+    /// </summary>
+    [Fact]
+    public async Task Moving_money_to_the_same_account_records_nothing()
+    {
+        using var client = _factory.CreateApiClient();
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+
+        var current = await _factory.CreateAccountAsync(
+            "Only " + suffix, "Bank", openingBalance: 100m, openedOn: new DateOnly(2026, 1, 1));
+
+        var pageHtml = await client.GetStringAsync("/transactions", CancellationToken.None);
+        var token = Regex.Match(pageHtml, @"RequestVerificationToken""\s*:\s*""([^""]+)""").Groups[1].Value;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/transactions?handler=QuickAdd");
+        request.Headers.Add("RequestVerificationToken", token);
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["amount"] = "10",
+            ["categoryId"] = "move",
+            ["accountId"] = current.Id.ToString(),
+            ["fromAccountId"] = current.Id.ToString(),
+            ["toAccountId"] = current.Id.ToString(),
+            ["occurredOn"] = "2026-09-01",
+            ["description"] = "Nowhere " + suffix
+        });
+
+        var rows = await (await client.SendAsync(request, CancellationToken.None))
+            .Content.ReadAsStringAsync(CancellationToken.None);
+
+        rows.Should().NotContain("Nowhere " + suffix);
+        (await _factory.BalanceAsync(current.Id)).Should().Be(100m);
+    }
 }

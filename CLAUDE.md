@@ -29,8 +29,10 @@ The solution, projects and test commands below exist; match the shape there.
 
 Removing the API took three capabilities with it, because they had a route and
 no screen: transfer between accounts, an entry split across several categories,
-and a balance as of a past date. The handlers are all still in
-`Money.Application` and still tested. Each needs a screen, not an endpoint.
+and a balance as of a past date. Transfer has a screen again - "Move money
+between accounts" in the Record something sheet, which posts to the same
+`QuickAdd` handler. The other two handlers are still in `Money.Application` and
+still tested, and each needs a screen, not an endpoint.
 See section 8 of [docs/using-the-app.md](docs/using-the-app.md).
 
 ---

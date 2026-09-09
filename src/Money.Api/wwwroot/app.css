@@ -759,6 +759,20 @@ form:has(#qa-repeat:checked) .repeat { display: block; }
 
 .repeat > .hint { margin: 1rem 0 0; }
 
+/* --- moving money -------------------------------------------------------- */
+
+/* "Move money" is a choice in the category picker rather than a second sheet,
+   so the same form has to be two shapes. Same :has() trick as the repeat panel,
+   and it comes after it so the move rule wins over `display: block` there: a
+   move is never a schedule. Nothing is disabled - both account selects carry a
+   real account whether or not they are on screen - so a hidden required field
+   can never block the submit. */
+
+.only-move { display: none; }
+
+form:has(#qa-category option[value="move"]:checked) .not-move { display: none; }
+form:has(#qa-category option[value="move"]:checked) .only-move { display: flex; }
+
 @media (max-width: 40rem) {
     main { padding-top: 1.5rem; }
     .field-grid .span-2 { grid-column: span 1; }

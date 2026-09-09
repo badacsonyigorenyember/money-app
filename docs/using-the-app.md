@@ -180,6 +180,12 @@ The **+** button in the bottom corner opens one sheet for everything you can rec
   things in euros and forints.
 - The amount is always positive.
 - Ticking **Repeat this automatically** turns the same entry into a schedule; see below.
+- **Move money between accounts** is the first choice in the category list, once you have two
+  accounts. It is not a category — nothing is spent or earned — but it is recorded from the same
+  sheet, so picking it swaps the single account for a **From** and a **To** and hides the repeat
+  panel. Both accounts have to be in the same currency; a mismatch is refused with a message
+  rather than converted behind your back. Left blank, the description becomes "Current to
+  Savings". Such an entry is a transfer, so it never appears in spending.
 
 The row appears without a page reload, and the chart above it moves with it.
 
@@ -339,11 +345,11 @@ Until 9 September 2026 there was a JSON API under `/api/v1`, and four things wer
 through it. The API is gone — the window never called it, so it was thirty routes kept alive for
 `curl` — and with it those four went from awkward to impossible. Recategorising an imported line
 was the fourth, and it went with bank sync itself; the other three use cases are all still in
-`Money.Application`, and what each needs is a screen.
+`Money.Application`, and what each needs is a screen. Moving money got its screen on 9 September
+2026 — it is a choice in the Record something sheet, see section 3 — so two are left.
 
 | | |
 |---|---|
-| **Move money between accounts** | `TransferHandler` exists and is tested. Nothing calls it. |
 | **Split one entry across several categories** | `CreateTransactionHandler` takes any number of lines; the quick-add form takes one category. |
 | **A balance on a past date** | `GetAccountBalanceHandler` takes an `asOf`; no screen passes one. |
 
@@ -355,7 +361,7 @@ integrity check, export, and the repeating rules.
 ## 9. Not built yet
 
 So you do not go looking for them: budgets, virtual pockets, interest accrual, net-worth
-projections, a reports dashboard, an edit-transaction screen, a transfer screen, a rename button
+projections, a reports dashboard, an edit-transaction screen, a rename button
 on Categories, and any way to see past the 200th entry in a month.
 
 Everything above works on one machine, against one local file, with no account and no sign-in.

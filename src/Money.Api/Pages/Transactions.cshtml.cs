@@ -14,6 +14,7 @@ namespace Money.Api.Pages;
 public sealed class TransactionsModel(
     ListTransactionsHandler list,
     QuickEntryHandler quickEntry,
+    TransferHandler transfer,
     VoidTransactionHandler voidTransaction,
     GetCategoryTreeHandler categories,
     ListAccountsHandler accounts,
@@ -123,22 +124,44 @@ public sealed class TransactionsModel(
         return Partial("Shared/_AccountOverview", this);
     }
 
+    /// <summary>
+    /// The category picker's one non-category choice. Moving money between two accounts is not a
+    /// category - nothing is spent or earned - but it is recorded from the same sheet, so it rides
+    /// in the same field rather than in a mode of its own.
+    /// </summary>
+    public const string MoveMoney = "move";
+
     public async Task<IActionResult> OnPostQuickAddAsync(
-        [FromForm] decimal amount, [FromForm] Guid categoryId, [FromForm] Guid accountId,
+        [FromForm] decimal amount, [FromForm] string? categoryId, [FromForm] Guid accountId,
+        [FromForm] Guid fromAccountId, [FromForm] Guid toAccountId,
         [FromForm] DateOnly? occurredOn, [FromForm] string? description,
         [FromForm] bool repeat, [FromForm] RepeatForm? every,
         CancellationToken cancellationToken)
     {
-        if (repeat)
+        if (categoryId == MoveMoney)
+        {
+            // Never repeating: a schedule is written as income or expense against a category, and
+            // a move has neither. The panel is hidden for this choice, and ignored if it arrives.
+            var moved = await transfer.HandleAsync(
+                new TransferRequest(amount, fromAccountId, toAccountId, occurredOn, description),
+                cancellationToken);
+
+            if (moved.IsFailure) ErrorMessage = moved.Error!.Message;
+        }
+        else if (!Guid.TryParse(categoryId, out var category))
+        {
+            ErrorMessage = "Choose what this was for.";
+        }
+        else if (repeat)
         {
             await AddRepeatingAsync(
-                amount, categoryId, accountId, occurredOn, description,
+                amount, category, accountId, occurredOn, description,
                 every ?? new RepeatForm(), cancellationToken);
         }
         else
         {
             var result = await quickEntry.HandleAsync(
-                new QuickEntryRequest(amount, categoryId, accountId, occurredOn, description, null),
+                new QuickEntryRequest(amount, category, accountId, occurredOn, description, null),
                 cancellationToken);
 
             if (result.IsFailure) ErrorMessage = result.Error!.Message;
