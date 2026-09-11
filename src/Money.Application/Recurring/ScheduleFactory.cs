@@ -27,13 +27,11 @@ internal static class ScheduleFactory
 
             RecurrenceFrequency.Weekly => Schedule.Weekly(interval, dayOfWeek),
 
-            RecurrenceFrequency.Monthly => request.WeekOfMonth is { } week
-                ? Schedule.MonthlyOnWeekday(interval, week, dayOfWeek)
-                : Schedule.MonthlyOnDay(interval, dayOfMonth),
+            RecurrenceFrequency.Monthly =>
+                Schedule.MonthlyOnDay(interval, dayOfMonth, request.MoveOffWeekends),
 
-            RecurrenceFrequency.Yearly => request.WeekOfMonth is { } week
-                ? Schedule.YearlyOnWeekday(interval, month, week, dayOfWeek)
-                : Schedule.YearlyOnDay(interval, month, dayOfMonth),
+            RecurrenceFrequency.Yearly =>
+                Schedule.YearlyOnDay(interval, month, dayOfMonth, request.MoveOffWeekends),
 
             RecurrenceFrequency.Custom =>
                 Schedule.Custom(request.CustomYears, request.CustomMonths, request.CustomDays),

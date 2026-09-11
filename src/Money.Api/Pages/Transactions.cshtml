@@ -245,26 +245,27 @@
 
                     <div class="field" data-when="Monthly Yearly">
                         <label for="qa-monthday">On</label>
-                        <select id="qa-monthday" name="every.MonthDay">
-                            <optgroup label="A day of the month">
-                                @for (var day = 1; day <= 31; day++)
-                                {
-                                    <option value="d:@day" selected="@(day == Model.Today.Day)">
-                                        The @Ordinal(day)
-                                    </option>
-                                }
-                            </optgroup>
-                            <optgroup label="A weekday of the month">
-                                @foreach (var (week, label) in Weeks)
-                                {
-                                    @foreach (var day in Enum.GetValues<DayOfWeek>())
-                                    {
-                                        <option value="w:@week:@day">The @label @day</option>
-                                    }
-                                }
-                            </optgroup>
+                        <select id="qa-monthday" name="every.DayOfMonth">
+                            @for (var day = 1; day <= 31; day++)
+                            {
+                                <option value="@day" selected="@(day == Model.Today.Day)">
+                                    The @Ordinal(day)
+                                </option>
+                            }
                         </select>
                         <span class="hint">The 31st becomes the 28th or 29th in February.</span>
+
+                        <label class="check">
+                            <input type="checkbox" id="qa-weekend" name="every.MoveOffWeekends"
+                                   value="true" />
+                            <span>
+                                Move it off weekends
+                                <span class="hint">
+                                    A Saturday or Sunday becomes the following Monday — what a
+                                    salary paid on the 1st actually does.
+                                </span>
+                            </span>
+                        </label>
                     </div>
 
                     <div class="field" data-when="Custom">
@@ -290,8 +291,9 @@
                 </div>
 
                 <p class="hint">
-                    The first occurrence is the date above. Entries are made on the day they fall due,
-                    not at a particular time.
+                    The date above starts the series: the first entry is the first date the schedule
+                    lands on from then on, which need not be the date itself. Entries are made on the
+                    day they fall due, not at a particular time.
                 </p>
             </fieldset>
 
@@ -308,11 +310,6 @@
 </dialog>
 
 @functions {
-    private static readonly (int Week, string Label)[] Weeks =
-    [
-        (1, "first"), (2, "second"), (3, "third"), (4, "fourth"), (-1, "last")
-    ];
-
     private static string Ordinal(int day) => day switch
     {
         1 or 21 or 31 => $"{day}st",

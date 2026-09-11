@@ -16,16 +16,16 @@ public sealed class ScheduleIdempotencyPropertyTests
 
     private static readonly Gen<Schedule> AnySchedule =
         Gen.Select(Gen.Int[0, 6], Gen.Int[1, 6], Gen.Int[1, 31], Gen.Int[1, 12],
-                   Gen.Int[1, 4], AnyDayOfWeek, Gen.Int[0, 3])
+                   AnyDayOfWeek, Gen.Int[0, 3])
            .Select(t => t.Item1 switch
            {
                0 => Schedule.Daily(t.Item2).Value,
-               1 => Schedule.Weekly(t.Item2, t.Item6).Value,
+               1 => Schedule.Weekly(t.Item2, t.Item5).Value,
                2 => Schedule.MonthlyOnDay(t.Item2, t.Item3).Value,
-               3 => Schedule.MonthlyOnWeekday(t.Item2, t.Item5, t.Item6).Value,
+               3 => Schedule.MonthlyOnDay(t.Item2, t.Item3, moveOffWeekends: true).Value,
                4 => Schedule.YearlyOnDay(t.Item2, t.Item4, t.Item3).Value,
-               5 => Schedule.YearlyOnWeekday(t.Item2, t.Item4, t.Item5, t.Item6).Value,
-               _ => Schedule.Custom(t.Item7, t.Item2, t.Item7 + t.Item2).Value
+               5 => Schedule.YearlyOnDay(t.Item2, t.Item4, t.Item3, moveOffWeekends: true).Value,
+               _ => Schedule.Custom(t.Item6, t.Item2, t.Item6 + t.Item2).Value
            });
 
     private static readonly Gen<DateOnly> AnyDate =

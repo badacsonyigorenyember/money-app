@@ -4,7 +4,8 @@ namespace Money.Application.Contracts;
 /// One repeating entry, as the screen states it. Enums travel as strings here, the way every
 /// other contract in this app states a kind or a role: <c>Direction</c> is Expense, Income or
 /// Transfer, <c>Frequency</c> is Daily, Weekly, Monthly, Yearly or Custom, and <c>DayOfWeek</c>
-/// is a day name. Each frequency reads only the fields it needs.
+/// is a day name. Each frequency reads only the fields it needs - <c>MoveOffWeekends</c> is
+/// monthly and yearly only, and pushes a weekend date on to the following Monday.
 /// </summary>
 public sealed record CreateRecurringRuleRequest(
     string Direction,
@@ -16,7 +17,7 @@ public sealed record CreateRecurringRuleRequest(
     string Frequency,
     int Interval,
     string? DayOfWeek,
-    int? WeekOfMonth,
+    bool MoveOffWeekends,
     int? DayOfMonth,
     int? Month,
     int CustomYears,

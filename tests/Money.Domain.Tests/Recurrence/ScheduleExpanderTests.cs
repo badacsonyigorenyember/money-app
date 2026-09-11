@@ -76,22 +76,35 @@ public sealed class ScheduleExpanderTests
     }
 
     [Fact]
-    public void A_monthly_rule_on_the_first_monday_moves_with_the_calendar()
+    public void A_monthly_rule_left_alone_fires_on_weekends_like_any_other_day()
     {
-        var schedule = Schedule.MonthlyOnWeekday(1, 1, DayOfWeek.Monday).Value;
+        var schedule = Schedule.MonthlyOnDay(1, 1).Value;
 
-        Expand(schedule, D(2026, 1, 1), D(2026, 1, 1), D(2026, 4, 30))
-            .Should().Equal(D(2026, 1, 5), D(2026, 2, 2), D(2026, 3, 2), D(2026, 4, 6));
+        // 1 August 2026 is a Saturday and 1 November a Sunday. Without the option, both stand.
+        Expand(schedule, D(2026, 8, 1), D(2026, 8, 1), D(2026, 12, 31))
+            .Should().Equal(D(2026, 8, 1), D(2026, 9, 1), D(2026, 10, 1), D(2026, 11, 1), D(2026, 12, 1));
     }
 
     [Fact]
-    public void A_monthly_rule_on_the_last_friday_takes_the_fifth_friday_when_there_is_one()
+    public void A_monthly_rule_that_avoids_weekends_lands_on_the_following_monday()
     {
-        var schedule = Schedule.MonthlyOnWeekday(1, -1, DayOfWeek.Friday).Value;
+        var schedule = Schedule.MonthlyOnDay(1, 1, moveOffWeekends: true).Value;
 
-        // January 2026 has five Fridays (2, 9, 16, 23, 30); February has four (6, 13, 20, 27).
-        Expand(schedule, D(2026, 1, 1), D(2026, 1, 1), D(2026, 2, 28))
-            .Should().Equal(D(2026, 1, 30), D(2026, 2, 27));
+        // Saturday the 1st becomes Monday the 3rd, Sunday the 1st Monday the 2nd. September,
+        // October and December start on a weekday and are left where they are.
+        Expand(schedule, D(2026, 8, 1), D(2026, 8, 1), D(2026, 12, 31))
+            .Should().Equal(D(2026, 8, 3), D(2026, 9, 1), D(2026, 10, 1), D(2026, 11, 2), D(2026, 12, 1));
+    }
+
+    [Fact]
+    public void A_weekend_move_can_carry_an_occurrence_into_the_next_month()
+    {
+        var schedule = Schedule.MonthlyOnDay(1, 31, moveOffWeekends: true).Value;
+
+        // The 31st clamps to Saturday 31 January and Saturday 28 February, and each rolls forward
+        // over the month boundary - so March holds two occurrences and January none.
+        Expand(schedule, D(2026, 1, 1), D(2026, 1, 1), D(2026, 3, 31))
+            .Should().Equal(D(2026, 2, 2), D(2026, 3, 2), D(2026, 3, 31));
     }
 
     [Fact]
@@ -113,12 +126,13 @@ public sealed class ScheduleExpanderTests
     }
 
     [Fact]
-    public void A_yearly_rule_can_target_the_first_monday_of_a_month()
+    public void A_yearly_rule_can_avoid_weekends_too()
     {
-        var schedule = Schedule.YearlyOnWeekday(1, 9, 1, DayOfWeek.Monday).Value;
+        var schedule = Schedule.YearlyOnDay(1, 8, 1, moveOffWeekends: true).Value;
 
+        // 1 August falls on a Saturday in 2026, a Sunday in 2027 and a Tuesday in 2028.
         Expand(schedule, D(2026, 1, 1), D(2026, 1, 1), D(2028, 12, 31))
-            .Should().Equal(D(2026, 9, 7), D(2027, 9, 6), D(2028, 9, 4));
+            .Should().Equal(D(2026, 8, 3), D(2027, 8, 2), D(2028, 8, 1));
     }
 
     [Fact]
@@ -172,11 +186,4 @@ public sealed class ScheduleExpanderTests
     [InlineData(32)]
     public void A_day_of_month_outside_one_to_thirty_one_is_rejected(int day) =>
         Schedule.MonthlyOnDay(1, day).IsFailure.Should().BeTrue();
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(5)]
-    [InlineData(-2)]
-    public void A_week_of_month_other_than_one_to_four_or_last_is_rejected(int week) =>
-        Schedule.MonthlyOnWeekday(1, week, DayOfWeek.Monday).IsFailure.Should().BeTrue();
 }

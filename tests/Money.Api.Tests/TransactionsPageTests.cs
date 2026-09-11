@@ -184,17 +184,17 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task The_repeat_panel_offers_a_day_of_the_month_and_a_weekday_of_the_month()
+    public async Task The_repeat_panel_offers_a_day_of_the_month_and_a_weekend_move()
     {
         using var client = _factory.CreateApiClient();
 
         var html = await client.GetStringAsync("/transactions", CancellationToken.None);
 
         html.Should().Contain("Repeat this automatically");
-        html.Should().Contain("value=\"d:10\"", "the 10th of the month must be pickable");
-        html.Should().Contain("value=\"w:1:Monday\"", "the first Monday must be pickable");
-        html.Should().Contain("value=\"w:-1:Friday\"", "the last Friday must be pickable");
+        html.Should().Contain("every.DayOfMonth", "the day of the month is the only monthly shape");
+        html.Should().Contain("every.MoveOffWeekends", "a weekend date has to be movable");
         html.Should().Contain("every.Years", "a custom repeat needs its own years/months/days");
+        html.Should().NotContain("w:1:Monday", "the weekday-of-the-month shape is gone");
     }
 
     /// <summary>
@@ -227,7 +227,8 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
             ["repeat"] = "true",
             ["every.Frequency"] = "Monthly",
             ["every.Interval"] = "1",
-            ["every.MonthDay"] = "d:1"
+            ["every.DayOfMonth"] = "1",
+            ["every.MoveOffWeekends"] = "true"
         });
 
         var response = await client.SendAsync(request, CancellationToken.None);
@@ -237,11 +238,15 @@ public sealed class TransactionsPageTests : IClassFixture<ApiFactory>
         rows.Should().Contain("now repeats");
         rows.Should().Contain("hx-swap-oob", "the repeating list is refreshed on the same response");
 
-        // The factory's clock reads 1 September 2026, so July, August and September are due.
+        // The factory's clock reads 1 September 2026, so July, August and September are due. The
+        // 1st of August is a Saturday, and the form asked for weekends to be moved off, so that
+        // one lands on Monday the 3rd - which is what proves the tick survives the round trip
+        // from an HTML form to a posted entry.
         var listed = await _factory.ListTransactionsAsync(description);
 
-        listed.Items.Should().HaveCount(3);
         listed.Items.Should().OnlyContain(item => item.Amount == 2500m);
+        listed.Items.Select(item => item.OccurredOn).OrderBy(date => date).Should().Equal(
+            new DateOnly(2026, 7, 1), new DateOnly(2026, 8, 3), new DateOnly(2026, 9, 1));
     }
 
     /// <summary>

@@ -195,9 +195,14 @@ Anything you ticked "repeat" on shows up here: what it is, when it repeats, when
 due, and the amount. Each has **Pause**/**Resume** and **Stop**.
 
 Schedules can be daily, weekly, monthly or yearly with an interval ("every 2 weeks"), or a custom
-number of years, months and days. Monthly and yearly ones take either a day of the month or a
-weekday of the month ("the last Friday"), and the 31st becomes the 28th or 29th in February. An
-end date is optional.
+number of years, months and days. Monthly and yearly ones take a day of the month, and the 31st
+becomes the 28th or 29th in February. Tick **Move it off weekends** and a date landing on a
+Saturday or Sunday fires on the following Monday instead — a salary paid "on the 1st" in the
+sense a payroll department means it. The move only ever goes forwards, so it can carry an entry
+into the next month: Saturday 31 January becomes Monday 2 February. An end date is optional.
+
+The date you pick starts the series; it does not force an entry of its own. A rule started on
+Saturday 1 August with the weekend tick makes its first entry on Monday the 3rd.
 
 Entries are made when they fall due — at startup, and again every time you open this page.
 Running it twice posts nothing extra: a unique index in the database, not just a check in code,

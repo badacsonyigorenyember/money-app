@@ -18,11 +18,14 @@ public sealed record Schedule
     /// <summary>Every <c>Interval</c> days/weeks/months/years. Always at least 1.</summary>
     public int Interval { get; private set; } = 1;
 
-    /// <summary>Weekly: which day. Monthly/Yearly: which day, together with <see cref="WeekOfMonth"/>.</summary>
+    /// <summary>Weekly only: which day of the week the rule fires on.</summary>
     public DayOfWeek? DayOfWeek { get; private set; }
 
-    /// <summary>1-4 for "the first/second/third/fourth &lt;weekday&gt;", -1 for "the last".</summary>
-    public int? WeekOfMonth { get; private set; }
+    /// <summary>
+    /// Monthly/Yearly: a date landing on a Saturday or Sunday fires on the following Monday
+    /// instead. What a salary paid "on the 1st" actually does when the 1st is a weekend.
+    /// </summary>
+    public bool MoveOffWeekends { get; private set; }
 
     /// <summary>1-31, clamped down to the length of each month, so 31 means 28 in February.</summary>
     public int? DayOfMonth { get; private set; }
@@ -57,7 +60,8 @@ public sealed record Schedule
         });
     }
 
-    public static Result<Schedule> MonthlyOnDay(int interval, int dayOfMonth)
+    public static Result<Schedule> MonthlyOnDay(
+        int interval, int dayOfMonth, bool moveOffWeekends = false)
     {
         if ((BadInterval(interval) ?? BadDay(dayOfMonth)) is { } error) return error;
 
@@ -65,24 +69,13 @@ public sealed record Schedule
         {
             Frequency = RecurrenceFrequency.Monthly,
             Interval = interval,
-            DayOfMonth = dayOfMonth
+            DayOfMonth = dayOfMonth,
+            MoveOffWeekends = moveOffWeekends
         });
     }
 
-    public static Result<Schedule> MonthlyOnWeekday(int interval, int weekOfMonth, DayOfWeek dayOfWeek)
-    {
-        if ((BadInterval(interval) ?? BadWeek(weekOfMonth)) is { } error) return error;
-
-        return Result<Schedule>.Ok(new Schedule
-        {
-            Frequency = RecurrenceFrequency.Monthly,
-            Interval = interval,
-            WeekOfMonth = weekOfMonth,
-            DayOfWeek = dayOfWeek
-        });
-    }
-
-    public static Result<Schedule> YearlyOnDay(int interval, int month, int dayOfMonth)
+    public static Result<Schedule> YearlyOnDay(
+        int interval, int month, int dayOfMonth, bool moveOffWeekends = false)
     {
         if ((BadInterval(interval) ?? BadMonth(month) ?? BadDay(dayOfMonth)) is { } error) return error;
 
@@ -91,22 +84,8 @@ public sealed record Schedule
             Frequency = RecurrenceFrequency.Yearly,
             Interval = interval,
             Month = month,
-            DayOfMonth = dayOfMonth
-        });
-    }
-
-    public static Result<Schedule> YearlyOnWeekday(
-        int interval, int month, int weekOfMonth, DayOfWeek dayOfWeek)
-    {
-        if ((BadInterval(interval) ?? BadMonth(month) ?? BadWeek(weekOfMonth)) is { } error) return error;
-
-        return Result<Schedule>.Ok(new Schedule
-        {
-            Frequency = RecurrenceFrequency.Yearly,
-            Interval = interval,
-            Month = month,
-            WeekOfMonth = weekOfMonth,
-            DayOfWeek = dayOfWeek
+            DayOfMonth = dayOfMonth,
+            MoveOffWeekends = moveOffWeekends
         });
     }
 
@@ -139,9 +118,4 @@ public sealed record Schedule
 
     private static DomainError? BadMonth(int month) =>
         month is >= 1 and <= 12 ? null : DomainErrors.Schedule.MonthOutOfRange(month);
-
-    private static DomainError? BadWeek(int weekOfMonth) =>
-        weekOfMonth == -1 || weekOfMonth is >= 1 and <= 4
-            ? null
-            : DomainErrors.Schedule.WeekOfMonthOutOfRange(weekOfMonth);
 }

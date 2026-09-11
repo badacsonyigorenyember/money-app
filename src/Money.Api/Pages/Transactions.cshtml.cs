@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Money.Application.Abstractions;
@@ -185,12 +184,10 @@ public sealed class TransactionsModel(
 
         var direction = isIncome ? "Income" : "Expense";
 
-        var (dayOfMonth, weekOfMonth, dayOfWeekInMonth) = ParseMonthDay(every.MonthDay);
-
         var created = await createRule.HandleAsync(new CreateRecurringRuleRequest(
             direction, amount, accountId, categoryId, description, null,
             every.Frequency, every.Interval,
-            (dayOfWeekInMonth ?? every.DayOfWeek)?.ToString(), weekOfMonth, dayOfMonth, every.Month,
+            every.DayOfWeek?.ToString(), every.MoveOffWeekends, every.DayOfMonth, every.Month,
             every.Years, every.Months, every.Days,
             startDate, every.EndDate), cancellationToken);
 
@@ -208,26 +205,6 @@ public sealed class TransactionsModel(
             ? $"{created.Value.Description} now repeats: {created.Value.ScheduleSummary.ToLowerInvariant()}. " +
               $"Next on {next:yyyy-MM-dd}."
             : $"{created.Value.Description} now repeats: {created.Value.ScheduleSummary.ToLowerInvariant()}.";
-    }
-
-    /// <summary>
-    /// The single "which day" control offers a day number and a weekday-of-the-month in one list,
-    /// so nothing else on the form has to change when the user switches between them. Values are
-    /// <c>d:10</c> or <c>w:1:Monday</c>, with week -1 meaning the last one in the month.
-    /// </summary>
-    internal static (int? DayOfMonth, int? WeekOfMonth, DayOfWeek? DayOfWeek) ParseMonthDay(string? value)
-    {
-        var parts = (value ?? "").Split(':');
-
-        if (parts is ["d", var day] && int.TryParse(day, CultureInfo.InvariantCulture, out var dayNumber))
-            return (dayNumber, null, null);
-
-        if (parts is ["w", var week, var weekday]
-            && int.TryParse(week, CultureInfo.InvariantCulture, out var weekNumber)
-            && Enum.TryParse<DayOfWeek>(weekday, out var parsedWeekday))
-            return (null, weekNumber, parsedWeekday);
-
-        return (null, null, null);
     }
 
     private static IEnumerable<CategoryNodeDto> Flatten(CategoryNodeDto node) =>
@@ -337,8 +314,11 @@ public sealed class RepeatForm
     public int Interval { get; set; } = 1;
     public DayOfWeek? DayOfWeek { get; set; }
 
-    /// <summary>Monthly and yearly: <c>d:10</c> or <c>w:1:Monday</c>. See ParseMonthDay.</summary>
-    public string? MonthDay { get; set; }
+    /// <summary>Monthly and yearly: which day number the rule lands on.</summary>
+    public int? DayOfMonth { get; set; }
+
+    /// <summary>Monthly and yearly: push a Saturday or Sunday on to the following Monday.</summary>
+    public bool MoveOffWeekends { get; set; }
 
     public int? Month { get; set; }
     public int Years { get; set; }

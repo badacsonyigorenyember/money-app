@@ -4,9 +4,9 @@ using Money.Domain.Recurrence;
 namespace Money.Application.Presentation;
 
 /// <summary>
-/// A schedule in the words a user would use for it - "on the 10th of every month", "every first
-/// Monday". The rules screen shows this instead of the stored fields, so nobody has to read a
-/// frequency enum to know when their rent goes out.
+/// A schedule in the words a user would use for it - "every month on the 10th", "every month on
+/// the 1st, or the next weekday". The rules screen shows this instead of the stored fields, so
+/// nobody has to read a frequency enum to know when their rent goes out.
 /// </summary>
 public static class ScheduleDescription
 {
@@ -24,11 +24,12 @@ public static class ScheduleDescription
                 ? $"Every {DayName(schedule.DayOfWeek!.Value)}"
                 : $"Every {schedule.Interval} weeks on {DayName(schedule.DayOfWeek!.Value)}",
 
-            RecurrenceFrequency.Monthly => Every(schedule.Interval, "month") + " " + InMonth(schedule),
+            RecurrenceFrequency.Monthly =>
+                Every(schedule.Interval, "month") + " " + OnDay(schedule) + OrNextWeekday(schedule),
 
             RecurrenceFrequency.Yearly =>
-                Every(schedule.Interval, "year") + " " + InMonth(schedule) +
-                " of " + MonthName(schedule.Month!.Value),
+                Every(schedule.Interval, "year") + " " + OnDay(schedule) +
+                " of " + MonthName(schedule.Month!.Value) + OrNextWeekday(schedule),
 
             RecurrenceFrequency.Custom => "Every " + string.Join(", ", Parts(schedule)),
 
@@ -36,10 +37,11 @@ public static class ScheduleDescription
         };
     }
 
-    private static string InMonth(Schedule schedule) =>
-        schedule.WeekOfMonth is { } week
-            ? $"on the {Ordinal(week)} {DayName(schedule.DayOfWeek!.Value)}"
-            : $"on the {Ordinal(schedule.DayOfMonth!.Value)}";
+    private static string OnDay(Schedule schedule) =>
+        $"on the {Ordinal(schedule.DayOfMonth!.Value)}";
+
+    private static string OrNextWeekday(Schedule schedule) =>
+        schedule.MoveOffWeekends ? ", or the next weekday" : "";
 
     private static string Every(int interval, string unit) =>
         interval == 1 ? $"Every {unit}" : $"Every {interval} {unit}s";
@@ -56,7 +58,6 @@ public static class ScheduleDescription
 
     private static string Ordinal(int n) => n switch
     {
-        -1 => "last",
         1 => "1st",
         2 => "2nd",
         3 => "3rd",

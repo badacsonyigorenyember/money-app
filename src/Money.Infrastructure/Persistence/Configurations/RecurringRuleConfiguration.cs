@@ -25,7 +25,7 @@ public sealed class RecurringRuleConfiguration : IEntityTypeConfiguration<Recurr
 
             schedule.Property(s => s.Interval).HasColumnName("Interval").IsRequired();
             schedule.Property(s => s.DayOfWeek).HasColumnName("DayOfWeek");
-            schedule.Property(s => s.WeekOfMonth).HasColumnName("WeekOfMonth");
+            schedule.Property(s => s.MoveOffWeekends).HasColumnName("MoveOffWeekends").IsRequired();
             schedule.Property(s => s.DayOfMonth).HasColumnName("DayOfMonth");
             schedule.Property(s => s.Month).HasColumnName("Month");
             schedule.Property(s => s.CustomYears).HasColumnName("CustomYears").IsRequired();

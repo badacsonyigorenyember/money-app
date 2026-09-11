@@ -55,10 +55,6 @@ public static class DomainErrors
             new("schedule.month_out_of_range",
                 $"The month must be between 1 and 12, but was {month}.");
 
-        public static DomainError WeekOfMonthOutOfRange(int week) =>
-            new("schedule.week_of_month_out_of_range",
-                $"Pick the first, second, third, fourth or last weekday of the month, not {week}.");
-
         public static DomainError CustomStepEmpty() =>
             new("schedule.custom_step_empty",
                 "A custom repeat needs a gap: set at least one of years, months or days above zero.");

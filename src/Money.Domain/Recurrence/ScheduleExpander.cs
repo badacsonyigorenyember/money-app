@@ -65,27 +65,28 @@ public static class ScheduleExpander
     {
         if (monthStart is not { } anchor) return null;
 
-        if (schedule.WeekOfMonth is { } week)
-            return NthWeekdayOf(anchor, week, schedule.DayOfWeek!.Value);
-
         // "The 31st" in a 30-day month means the 30th, and in February the 28th or 29th.
         var length = DateTime.DaysInMonth(anchor.Year, anchor.Month);
-        return new DateOnly(anchor.Year, anchor.Month, Math.Min(schedule.DayOfMonth!.Value, length));
+        var date = new DateOnly(anchor.Year, anchor.Month, Math.Min(schedule.DayOfMonth!.Value, length));
+
+        return schedule.MoveOffWeekends ? NextWeekday(date) : date;
     }
 
     /// <summary>
-    /// The first/second/third/fourth <paramref name="day"/> of the month, or the last one when
-    /// <paramref name="week"/> is -1. Weeks 1-4 always exist: every month is at least 28 days.
+    /// Saturday and Sunday roll forward to the Monday; every other day stands. Forward only, for
+    /// two reasons: a backward roll could land before the rule's start date, where Expand would
+    /// drop the occurrence without saying so, and it could cross the previous occurrence. Rolling
+    /// forward moves a date by at most two days while consecutive monthly candidates are at least
+    /// 28 days apart, so the series stays strictly increasing and Expand can still stop at the
+    /// first date past the window. The roll may carry a date into the next month - 31 January on a
+    /// Saturday becomes 2 February - which is allowed: the occurrence still happens once.
     /// </summary>
-    private static DateOnly NthWeekdayOf(DateOnly monthStart, int week, DayOfWeek day)
+    private static DateOnly NextWeekday(DateOnly date) => date.DayOfWeek switch
     {
-        var first = OnOrAfter(monthStart, day);
-        if (week > 0) return first.AddDays((week - 1) * 7);
-
-        var last = first;
-        while (last.AddDays(7).Month == monthStart.Month) last = last.AddDays(7);
-        return last;
-    }
+        DayOfWeek.Saturday => date.AddDays(2),
+        DayOfWeek.Sunday => date.AddDays(1),
+        _ => date
+    };
 
     private static DateOnly OnOrAfter(DateOnly date, DayOfWeek day) =>
         date.AddDays((7 + (int)day - (int)date.DayOfWeek) % 7);

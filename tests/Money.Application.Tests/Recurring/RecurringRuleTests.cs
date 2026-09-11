@@ -58,7 +58,7 @@ public sealed class RecurringRuleTests : IAsyncLifetime, IDisposable
 
     private CreateRecurringRuleRequest MonthlySalary(int dayOfMonth = 1) => new(
         "Income", 3000m, _bank.Id, _salary.Id, "Salary", "Acme Ltd",
-        "Monthly", 1, null, null, dayOfMonth, null, 0, 0, 0,
+        "Monthly", 1, null, false, dayOfMonth, null, 0, 0, 0,
         new DateOnly(2026, 1, dayOfMonth), null);
 
     private async Task<IReadOnlyList<Transaction>> LedgerAsync() =>
@@ -137,13 +137,35 @@ public sealed class RecurringRuleTests : IAsyncLifetime, IDisposable
 
         await Create.HandleAsync(new CreateRecurringRuleRequest(
             "Expense", 800m, _bank.Id, _rent.Id, "Rent", null,
-            "Monthly", 1, null, null, 31, null, 0, 0, 0,
+            "Monthly", 1, null, false, 31, null, 0, 0, 0,
             new DateOnly(2026, 1, 31), null), CancellationToken.None);
 
         await Materialiser.RunAsync(CancellationToken.None);
 
         (await RecurringDatesAsync())
             .Should().Equal(new DateOnly(2026, 1, 31), new DateOnly(2026, 2, 28));
+    }
+
+    /// <summary>
+    /// The payday case: a salary on the 1st, moved off weekends. Goes through the database rather
+    /// than the expander alone, so the flag has to survive being written and read back.
+    /// </summary>
+    [Fact]
+    public async Task A_salary_on_the_first_that_avoids_weekends_posts_on_the_following_monday()
+    {
+        _harness.Clock.UtcNow = new DateTimeOffset(2026, 11, 30, 9, 0, 0, TimeSpan.Zero);
+
+        await Create.HandleAsync(new CreateRecurringRuleRequest(
+            "Income", 3000m, _bank.Id, _salary.Id, "Salary", "Acme Ltd",
+            "Monthly", 1, null, true, 1, null, 0, 0, 0,
+            new DateOnly(2026, 8, 1), null), CancellationToken.None);
+
+        await Materialiser.RunAsync(CancellationToken.None);
+
+        // 1 August 2026 is a Saturday and 1 November a Sunday; the rest start on a weekday.
+        (await RecurringDatesAsync()).Should().Equal(
+            new DateOnly(2026, 8, 3), new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 10, 1), new DateOnly(2026, 11, 2));
     }
 
     [Fact]
@@ -153,7 +175,7 @@ public sealed class RecurringRuleTests : IAsyncLifetime, IDisposable
 
         await Create.HandleAsync(new CreateRecurringRuleRequest(
             "Transfer", 100m, _bank.Id, _savings.Id, "Save something", null,
-            "Weekly", 1, "Monday", null, null, null, 0, 0, 0,
+            "Weekly", 1, "Monday", false, null, null, 0, 0, 0,
             new DateOnly(2026, 1, 1), null), CancellationToken.None);
 
         await Materialiser.RunAsync(CancellationToken.None);
@@ -224,7 +246,7 @@ public sealed class RecurringRuleTests : IAsyncLifetime, IDisposable
     {
         var result = await Create.HandleAsync(new CreateRecurringRuleRequest(
             "Expense", 10m, _bank.Id, _rent.Id, "Nothing", null,
-            "Custom", 1, null, null, null, null, 0, 0, 0,
+            "Custom", 1, null, false, null, null, 0, 0, 0,
             new DateOnly(2026, 1, 1), null), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -236,7 +258,7 @@ public sealed class RecurringRuleTests : IAsyncLifetime, IDisposable
     {
         var result = await Create.HandleAsync(new CreateRecurringRuleRequest(
             "Expense", 10m, _bank.Id, _salary.Id, "Wrong way round", null,
-            "Monthly", 1, null, null, 1, null, 0, 0, 0,
+            "Monthly", 1, null, false, 1, null, 0, 0, 0,
             new DateOnly(2026, 1, 1), null), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();

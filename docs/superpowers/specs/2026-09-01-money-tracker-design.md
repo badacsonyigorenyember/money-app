@@ -376,8 +376,8 @@ Schedule
   Interval  >= 1
   Weekly  -> DayOfWeek
   Monthly -> DayOfMonth (1..31, clamped to month length)
-           | (WeekOfMonth, DayOfWeek)   1..4, or -1 for the last
-  Yearly  -> Month + either of the two Monthly shapes
+             + MoveOffWeekends: Sat/Sun fire on the following Monday
+  Yearly  -> Month + the Monthly shape
   Custom  -> (Years, Months, Days) applied together; at least one non-zero
 ```
 
