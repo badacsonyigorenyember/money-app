@@ -7,6 +7,14 @@ shipped as a single-file WebView2-hosted `.exe`.
 no server mode. The window is the only client, and it talks to Razor page
 handlers. Do not add an HTTP endpoint for something a page handler can do.
 
+`Money.Desktop` is the only entry point in the solution. `Money.Api` holds the
+Razor Pages and the composition root but is a **library** — it has no `Main`,
+so there is no `dotnet run --project src/Money.Api` and no way to serve this UI
+to a browser by accident. `Money.Architecture.Tests/EntryPointTests` fails the
+build if an entry point comes back. Do not add one to get a test host: the
+integration tests build the same pipeline over a `TestServer` in
+`tests/Money.Api.Tests/ApiFactory.cs`.
+
 Full design: [docs/superpowers/specs/2026-09-01-money-tracker-design.md](docs/superpowers/specs/2026-09-01-money-tracker-design.md).
 That spec is the contract — this file is the subset you must not violate while
 coding. When the two disagree, the spec wins and this file gets fixed.
@@ -24,7 +32,11 @@ launch profiles. Bank sync went the same day — the Enable Banking feed, its
 client and options, `ImportBankTransactionsHandler`, `LedgerTemplates.Imported`
 and the Home screen's sync form are all gone. Still unbuilt: budgets (4),
 pockets (5), investments and accrual (6) and the reports dashboard (7). Phase
-9, server mode, is dropped. CSV import is still deferred, not dropped.
+9, server mode, is dropped. On 11 September 2026 the last of the browser
+hosting followed: Money.Api's entry point is deleted and the project is a
+library, so Money.Desktop is the only thing in the solution that starts, and
+the integration tests host the pipeline over a `TestServer` rather than
+`WebApplicationFactory`. CSV import is still deferred, not dropped.
 The solution, projects and test commands below exist; match the shape there.
 
 Removing the API took three capabilities with it, because they had a route and
@@ -125,13 +137,13 @@ src/
   Money.Domain/          entities, value objects, invariants, pure engines
   Money.Application/     use cases, ports, validation, DTOs
   Money.Infrastructure/  EF Core, migrations, repositories, clock, backup
-  Money.Api/             Razor Pages + HTMX, page handlers, composition root
+  Money.Api/             Razor Pages + HTMX, page handlers, composition root (library)
   Money.Desktop/         WebView2 host, boots Kestrel on loopback
 tests/
   Money.TestSupport/         FakeClock, SqliteFixture, ledger builders (not a test project)
   Money.Domain.Tests/        fast unit + property tests, no I/O
   Money.Application.Tests/   use cases against real in-memory SQLite
-  Money.Api.Tests/           WebApplicationFactory integration tests
+  Money.Api.Tests/           TestServer integration tests over the real pipeline
   Money.Architecture.Tests/  NetArchTest rules
 ```
 
@@ -156,9 +168,18 @@ Also non-negotiable at the boundaries:
   throws to say no. `AddProblemDetails` stays registered for what the framework
   raises on its own (a failed antiforgery check is a 400 because of it).
 - `--headless` is Money.Desktop's flag and lives only there: no window, no
-  WebView2 check, no single-instance mutex, address from `--urls`. It exists
-  for CI's smoke test against `/health` and is not a hosting mode. Nothing
-  below `Money.Desktop` knows it was passed.
+  WebView2 check, address from `--urls`. It exists for CI's smoke test against
+  `/health` and is not a hosting mode. Nothing below `Money.Desktop` knows it
+  was passed.
+- The single-instance guard covers **every** start, headless included, and is
+  scoped to the data directory. A headless process writes to the ledger exactly
+  as hard as a window does, and two processes appending to one WAL is how a
+  SQLite file becomes `database disk image is malformed` — which is not
+  hypothetical, it happened on 11 September 2026 to the real ledger, because
+  `--headless` used to skip the guard. A second start against a directory
+  already in use exits 1 with a message on stderr, or a dialog when there is a
+  window. Running a throwaway instance beside the real one still works, and
+  still means `MONEYAPP_DATA_DIR`.
 
 ---
 

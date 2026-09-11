@@ -50,12 +50,50 @@ internal static class Program
         // --headless is this host's own flag, and it is stripped before the arguments reach
         // configuration: the command-line provider has no notion of a valueless flag, so it reads
         // --headless --urls http://127.0.0.1:5099 as the key --headless with the value --urls, and
-        // the real address pair vanishes. Headless means no window, no WebView2 runtime check and
-        // no single-instance mutex, because none of the three applies to a process nobody is
-        // looking at. CI's smoke test runs the published exe this way, on a runner that has no
-        // browser runtime at all. The address arrives through configuration, not through app.Urls.
+        // the real address pair vanishes. Headless means no window and no WebView2 runtime check,
+        // because neither applies to a process nobody is looking at. CI's smoke test runs the
+        // published exe this way, on a runner that has no browser runtime at all. The address
+        // arrives through configuration, not through app.Urls.
         var headless = args.Contains(HeadlessFlag, StringComparer.OrdinalIgnoreCase);
         args = [.. args.Where(arg => !HeadlessFlag.Equals(arg, StringComparison.OrdinalIgnoreCase))];
+
+        // Two processes writing one SQLite file is the failure this guard exists to prevent, and
+        // a headless process writes exactly as hard as a window does: a WAL appended to by two
+        // processes at once is how a ledger turns into "database disk image is malformed". So the
+        // guard covers every start, and --headless changes only how it says no. It used to be
+        // skipped here, on the reasoning that a process nobody is looking at has no window to
+        // raise - true, and beside the point, because the file it opens is the same file.
+        //
+        // The name is scoped to the data directory rather than the machine: MONEYAPP_DATA_DIR
+        // exists precisely so a throwaway instance can run against scratch data side by side with
+        // the real one (docs/running-locally.md), and a global name would forbid that.
+        using var singleInstance = new Mutex(true, MutexNameFor(dataDirectory), out var isOnlyInstance);
+        if (!isOnlyInstance)
+        {
+            if (headless)
+            {
+                Console.Error.WriteLine($"Money is already running against {dataDirectory}.");
+                return 1;
+            }
+
+            // Saying so, rather than vanishing. A silent exit here is indistinguishable from
+            // "the new build opened and is still broken": you publish, double-click, the new
+            // process leaves without a word, and the window you are looking at is the old one -
+            // running the old code, against the old schema, showing the old error. That cost an
+            // afternoon once.
+            //
+            // ponytail: a message, not a raise. Raising the other window means FindWindow on a
+            // title that is not unique, and SetForegroundWindow is refused to a process that does
+            // not own the foreground - focusing the wrong window is worse than saying nothing.
+            // Upgrade path: have the owner listen on a named pipe and raise itself when a
+            // newcomer knocks.
+            ShowError(
+                "Money is already open, and one window is the limit - two of them would be two "
+                + "programs writing one ledger file.\n\nThis is the copy you just started, and it "
+                + "is closing. Close the window that is already open before starting a new build, "
+                + "or you will keep looking at the old one.");
+            return 0;
+        }
 
         if (headless)
         {
@@ -84,20 +122,30 @@ internal static class Program
             return 1;
         }
 
-        // Two processes writing one SQLite file is the failure this guard exists to prevent, so
-        // the name is scoped to the data directory rather than the machine: MONEYAPP_DATA_DIR
-        // exists precisely so a throwaway instance can run against scratch data side by side
-        // with the real one (docs/running-locally.md), and a global name would forbid that.
-        using var singleInstance = new Mutex(true, MutexNameFor(dataDirectory), out var isOnlyInstance);
-        if (!isOnlyInstance)
+        // A WinExe has no console, so every line the logging pipeline writes - including the
+        // stack trace behind a 500 in the window - goes nowhere, and the only thing on screen is
+        // a trace id that leads to no trace. Point Console.Out at a file beside the ledger so the
+        // window can be asked what went wrong.
+        //
+        // After the single-instance guard, never before it: this truncates the file, and a second
+        // instance that opens it on its way to discovering it is not wanted would blank the log of
+        // the instance actually on screen - or fail outright on the writer that one still holds.
+
+        //
+        // ponytail: one file, overwritten each start, so it cannot grow without bound and always
+        // describes the session you are looking at. Upgrade path: roll by date if a failure ever
+        // needs the run before this one.
+        System.IO.Directory.CreateDirectory(dataDirectory);
+        Console.SetOut(new System.IO.StreamWriter(System.IO.Path.Combine(dataDirectory, "money.log"))
         {
-            // ponytail: the instance that is already running keeps the screen; this one just
-            // leaves. Raising the other window means FindWindow on a title that is not unique,
-            // and SetForegroundWindow is refused to a process that does not own the foreground -
-            // focusing the wrong window is worse than doing nothing. Upgrade path: have the
-            // owner listen on a named pipe and raise itself when a newcomer knocks.
-            return 0;
-        }
+            AutoFlush = true
+        });
+
+        // Which ledger this window is about to open. The host logs its content root already, and
+        // that is the one path that does not matter; the one that does was never written down, so
+        // "the database is corrupt" could never be checked against "which database".
+        Console.WriteLine($"info: Money.Desktop[0]{Environment.NewLine}      Ledger: "
+            + DataDirectory.DatabasePathIn(dataDirectory));
 
         var app = BuildApp(args);
 

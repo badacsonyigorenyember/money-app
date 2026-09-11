@@ -6,6 +6,9 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <!-- The Razor Pages and the composition root, as a library. Money.Desktop is the only
+         entry point in this solution; see EntryPointTests. -->
+    <OutputType>Library</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

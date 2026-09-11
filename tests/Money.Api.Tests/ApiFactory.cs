@@ -1,5 +1,7 @@
+using System.Net;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,17 +21,22 @@ namespace Money.Api.Tests;
 /// <summary>
 /// The whole app over a real, private SQLite database held in memory for the lifetime of the
 /// factory, with a FakeClock so no test reads the system clock.
+///
+/// Money.Api is a library, so there is no entry point for WebApplicationFactory to find and
+/// invoke. The app is built here the same way Money.Desktop builds it - MoneyWebApp.CreateAsync,
+/// naming Money.Api so the compiled Razor Pages are found - and served over a TestServer instead
+/// of Kestrel.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>
+public sealed class ApiFactory : IDisposable
 {
-    // AddMoneyApp (called from Program.cs, before ConfigureWebHost below gets a chance to swap
-    // the DbContext for the in-memory one) resolves MONEYAPP_DATA_DIR and creates that directory
-    // unconditionally. A static constructor runs exactly once per process, guaranteed by the CLR
-    // to complete before the first ApiFactory instance (and therefore before the app's entry
-    // point) can ever run, and before any second, concurrently-constructed ApiFactory could race
-    // it under xUnit's parallel execution. Redirecting the variable here - once, for the whole
-    // test process - means no test run ever touches the developer's real %APPDATA%/MoneyApp, not
-    // even to create an empty folder in it.
+    // AddMoneyApp (called by MoneyWebApp.CreateAsync, before the configure callback below gets a
+    // chance to swap the DbContext for the in-memory one) resolves MONEYAPP_DATA_DIR and creates
+    // that directory unconditionally. A static constructor runs exactly once per process,
+    // guaranteed by the CLR to complete before the first ApiFactory instance can ever run, and
+    // before any second, concurrently-constructed ApiFactory could race it under xUnit's parallel
+    // execution. Redirecting the variable here - once, for the whole test process - means no test
+    // run ever touches the developer's real %APPDATA%/MoneyApp, not even to create an empty
+    // folder in it.
     static ApiFactory()
     {
         var sandboxDataDirectory = Path.Combine(
@@ -50,30 +57,93 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     private readonly SqliteConnection _connection = new("DataSource=:memory:;Foreign Keys=True");
 
+    // Lazily, because xUnit constructs a class fixture eagerly and a test that never asks for the
+    // app should not pay to boot one. WebApplicationFactory deferred the same way.
+    private readonly Lazy<WebApplication> _app;
+
+    public ApiFactory() => _app = new Lazy<WebApplication>(Start);
+
     public FakeClock Clock { get; } = FakeClock.At(2026, 9, 1, 9, 0);
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    public IServiceProvider Services => _app.Value.Services;
+
+    private WebApplication Start()
     {
-        builder.UseEnvironment("Testing");
+        // Held open for the lifetime of the factory: a :memory: database lives exactly as long as
+        // its first connection, so closing this one would erase it between requests.
+        _connection.Open();
 
-        builder.ConfigureServices(services =>
-        {
-            _connection.Open();
+        var app = MoneyWebApp.CreateAsync(
+            new WebApplicationOptions
+            {
+                ApplicationName = typeof(MoneyWebApp).Assembly.GetName().Name,
+                EnvironmentName = "Testing",
+                ContentRootPath = AppContext.BaseDirectory
+            },
+            builder =>
+            {
+                builder.WebHost.UseTestServer();
 
-            services.RemoveAll<DbContextOptions<MoneyDbContext>>();
-            services.RemoveAll<MoneyDbContext>();
-            services.AddDbContext<MoneyDbContext>(options => options.UseSqlite(_connection));
+                builder.Services.RemoveAll<DbContextOptions<MoneyDbContext>>();
+                builder.Services.RemoveAll<MoneyDbContext>();
+                builder.Services.AddDbContext<MoneyDbContext>(options => options.UseSqlite(_connection));
 
-            services.RemoveAll<IClock>();
-            services.AddSingleton<IClock>(Clock);
+                builder.Services.RemoveAll<IClock>();
+                builder.Services.AddSingleton<IClock>(Clock);
+            }).GetAwaiter().GetResult();
 
-            using var scope = services.BuildServiceProvider().CreateScope();
-            scope.ServiceProvider.GetRequiredService<MoneyDbContext>().Database.Migrate();
-        });
+        // CreateAsync migrates the database itself on the way up, so the schema is already there.
+        app.StartAsync().GetAwaiter().GetResult();
+        return app;
     }
 
-    public HttpClient CreateApiClient() =>
-        CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    /// <summary>
+    /// A client that keeps cookies and does not follow redirects, which is what these tests want:
+    /// a page that answers 302 is asserted on as a 302, not silently chased to wherever it
+    /// points. TestServer does neither on its own.
+    /// </summary>
+    public HttpClient CreateApiClient()
+    {
+        var server = _app.Value.GetTestServer();
+        return new HttpClient(new CookieHandler(server.CreateHandler()))
+        {
+            BaseAddress = server.BaseAddress
+        };
+    }
+
+    /// <summary>
+    /// The antiforgery token arrives as a cookie and has to come back on the next post, so a
+    /// client that forgets it makes every form submission a 400. WebApplicationFactory supplied
+    /// the equivalent; a bare TestServer has to be told.
+    /// </summary>
+    private sealed class CookieHandler(HttpMessageHandler inner) : DelegatingHandler(inner)
+    {
+        private readonly CookieContainer _cookies = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var uri = request.RequestUri!;
+
+            var header = _cookies.GetCookieHeader(uri);
+            if (header.Length > 0)
+            {
+                request.Headers.Add("Cookie", header);
+            }
+
+            var response = await base.SendAsync(request, cancellationToken);
+
+            if (response.Headers.TryGetValues("Set-Cookie", out var values))
+            {
+                foreach (var value in values)
+                {
+                    _cookies.SetCookies(uri, value);
+                }
+            }
+
+            return response;
+        }
+    }
 
     /// <summary>
     /// Ledger setup and read-back through the app's own use cases. The desktop app exposes no
@@ -129,9 +199,14 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         UseAsync(services => services.GetRequiredService<ListTransactionsHandler>().HandleAsync(
             new TransactionQuery(null, null, null, null, text, includeVoided, null, 200)));
 
-    protected override void Dispose(bool disposing)
+    public void Dispose()
     {
-        base.Dispose(disposing);
-        if (disposing) _connection.Dispose();
+        if (_app.IsValueCreated)
+        {
+            _app.Value.StopAsync().GetAwaiter().GetResult();
+            ((IDisposable)_app.Value).Dispose();
+        }
+
+        _connection.Dispose();
     }
 }

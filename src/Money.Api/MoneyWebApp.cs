@@ -4,18 +4,24 @@ using Money.Infrastructure.Persistence;
 namespace Money.Api;
 
 /// <summary>
-/// The whole app in one place so both entry points - the WebView2 host in Money.Desktop and the
-/// test host - boot the identical pipeline. It serves the Razor Pages the desktop window renders
-/// and nothing else: there is no JSON API, because nothing but that window ever calls it.
+/// The whole app in one place so both hosts - the WebView2 window in Money.Desktop and the test
+/// server - boot the identical pipeline. It serves the Razor Pages the desktop window renders and
+/// nothing else: there is no JSON API, because nothing but that window ever calls it. This
+/// project has no entry point of its own; starting Money means starting Money.Desktop.
 /// </summary>
 public static class MoneyWebApp
 {
     /// <param name="options">
-    /// Money.Desktop is the entry assembly when hosted in WebView2, so it has to name Money.Api
-    /// explicitly - that is where the compiled Razor Pages live - and pin the content root to the
-    /// exe folder rather than whatever directory the shortcut happened to launch from.
+    /// Money.Desktop is the entry assembly, so it has to name Money.Api explicitly - that is
+    /// where the compiled Razor Pages live - and pin the content root to the exe folder rather
+    /// than whatever directory the shortcut happened to launch from.
     /// </param>
-    public static async Task<WebApplication> CreateAsync(WebApplicationOptions options)
+    /// <param name="configure">
+    /// Runs after the app's own registrations and before Build, which is the only window in which
+    /// a host can swap one out. The test server replaces the database and the clock here.
+    /// </param>
+    public static async Task<WebApplication> CreateAsync(
+        WebApplicationOptions options, Action<WebApplicationBuilder>? configure = null)
     {
         var builder = WebApplication.CreateBuilder(options);
 
@@ -25,6 +31,8 @@ public static class MoneyWebApp
         // the requests that are not a plain <form> post - the Remove button has no enclosing form.
         builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
         builder.Services.AddProblemDetails();
+
+        configure?.Invoke(builder);
 
         var app = builder.Build();
 

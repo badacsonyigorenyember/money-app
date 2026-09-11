@@ -7,7 +7,6 @@ public sealed class AmbientTimeTests
     private static readonly string[] AllowedPathFragments =
     [
         Path.Combine("Money.Infrastructure", "Time", "SystemClock.cs"),
-        Path.Combine("Money.Api", "Program.cs"),
         Path.Combine("Money.Desktop", "")
     ];
 

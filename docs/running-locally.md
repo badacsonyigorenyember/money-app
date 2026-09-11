@@ -8,9 +8,39 @@
 
     dotnet run --project src/Money.Desktop
 
-A window opens. There is no other way to run it: Kestrel binds a loopback port the OS picks and
-the WebView2 window is its only client. On first run you are taken to a short setup wizard: pick
-a currency, when your "month" starts, and your first account.
+A window opens. There is no other way to run it — `Money.Api` is a library with no entry point,
+so `dotnet run --project src/Money.Api` is refused. Kestrel binds a loopback port the OS picks
+and the WebView2 window is its only client. On first run you are taken to a short setup wizard:
+pick a currency, when your "month" starts, and your first account.
+
+## Close the old window before opening a new build
+
+One window is the limit — two processes writing one SQLite file is the failure the single-instance
+guard exists to prevent. So if a window is already open, a newly started `Money.exe` says so and
+closes; **it does not replace the one on screen.** Publishing while the old window is open and then
+double-clicking the new exe therefore leaves you looking at the old build, running the old code
+against the old schema, still showing whatever it was showing before.
+
+## If the window shows an error instead of a page
+
+A JSON block with a `traceId` and `"status": 500` means a page handler threw. The window has no
+console, so the stack trace behind it goes to **`%APPDATA%\MoneyApp\money.log`** — written fresh
+on every start, holding only the session you are looking at. Search it for `fail:`.
+
+The commonest cause is a schema the running build does not match: an exe built after a migration,
+opened on a database that has not had it applied yet (or the reverse — an older exe on a migrated
+database). It reads as `SQLite Error 1: 'no such column: X'`. Publishing and reopening applies
+whatever is pending, writing a pre-migration backup first.
+
+## If the window looks unstyled
+
+Black chart, Times New Roman, every tooltip showing at once: that is `app.css` coming back 404,
+and the page says so — view source and the link reads `href="/app.css"` with no `?v=` stamp.
+
+The cause is almost always a `dotnet build` or `dotnet test` **while the window is open**. Both
+rewrite `src/Money.Desktop/bin/…/win-x64/wwwroot/`, and the running Kestrel serves 404 for the
+seconds the file is missing. Nothing is broken and nothing needs fixing: close the window and
+start it again. Build first, then run.
 
 ## Where your data lives
 
